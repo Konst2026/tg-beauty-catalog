@@ -1262,100 +1262,128 @@ frontend/
 Агент по AI-архитектуре создал подробный файл с принципами и примерами: [ai-friendly-architecture.md](ai-friendly-architecture.md)  
 Ниже — конкретные шаблоны которые нужно соблюдать при каждом новом файле.
 
-### Почему вертикальные срезы лучше горизонтальных слоёв для ИИ
+### Почему Clean Architecture + вертикальные срезы лучше горизонтальных слоёв для ИИ
 
 ```
-❌ Горизонтальные слои (классика, плохо для ИИ):
+❌ Горизонтальные слои (нарушают Dependency Rule, плохо для ИИ):
    controllers/masterController.ts
    services/masterService.ts
    repositories/masterRepository.ts
    models/Master.ts
-   → добавить одну фичу = трогать 5 файлов в 5 папках
+   → добавить одну фичу = трогать файлы в 5 разных папках
 
-✅ Вертикальные срезы (хорошо для ИИ):
-   features/master-profile/update-working-hours/
-     update-working-hours.handler.ts   (40 строк)
-     update-working-hours.schema.ts    (20 строк)
-     update-working-hours.route.ts     (15 строк)
-   → добавить одну фичу = создать одну папку с 3 файлами
+✅ Clean Architecture + вертикальные срезы (хорошо для ИИ):
+   use-cases/manage-schedule/
+     update-working-hours.use-case.ts  (40 строк — чистая оркестрация)
+   adapters/http/schedules/
+     schedules.controller.ts           (20 строк — HTTP ↔ Use Case)
+     schedules.schema.ts               (15 строк — Zod-валидация)
+   → добавить одну фичу = 1 use-case файл + 1 строка в controller
 ```
 
-### Шаблон: Handler
+### Шаблон: Use Case (`use-cases/verb-noun/verb-noun.use-case.ts`)
 
 ```typescript
-// features/booking/create-booking/create-booking.handler.ts
-import type { IBookingRepository } from '@/entities/booking';
-import type { IMasterRepository } from '@/entities/master';
-import type { CreateBookingInput, CreateBookingResult } from './create-booking.schema';
+// use-cases/create-booking/create-booking.use-case.ts
+import type { IBookingRepository } from '@/domain/ports/booking.repo.port';
+import type { IMasterRepository }   from '@/domain/ports/master.repo.port';
+import type { IEventBus }           from '@/domain/ports/event-bus.port';
+import type { Booking }             from '@/domain/booking/booking.entity';
 
-// Зависимости явно видны в сигнатуре — ИИ понимает что нужно функции
-export async function createBookingHandler(
-  input: CreateBookingInput,
-  deps: {
-    bookingRepo: IBookingRepository;
-    masterRepo: IMasterRepository;
+export type CreateBookingInput = {
+  masterId:  string;
+  serviceId: string;
+  startTime: Date;
+  clientId:  string;
+};
+
+// Результат — union type, не throw. ИИ видит все исходы явно.
+export type CreateBookingResult =
+  | { ok: true;  booking: Booking }
+  | { ok: false; reason: 'master_not_found' | 'slot_taken' | 'service_not_found' };
+
+export class CreateBookingUseCase {
+  constructor(
+    private readonly bookingRepo: IBookingRepository,
+    private readonly masterRepo:  IMasterRepository,
+    private readonly eventBus:    IEventBus,
+  ) {}
+
+  async execute(input: CreateBookingInput): Promise<CreateBookingResult> {
+    const master = await this.masterRepo.findById(input.masterId);
+    if (!master) return { ok: false, reason: 'master_not_found' };
+
+    const booking = await this.bookingRepo.create(input);
+    // Error 23P01 (EXCLUDE GIST) пробрасывается наверх, ловится в Controller
+
+    await this.eventBus.publish({ type: 'BookingConfirmed', payload: { booking } });
+    return { ok: true, booking };
   }
-): Promise<CreateBookingResult> {
-  const master = await deps.masterRepo.findById(input.masterId);
-  if (!master) return { success: false, reason: 'master_not_found' };
-
-  const booking = await deps.bookingRepo.create(input);
-  // Error 23P01 от EXCLUDE GIST → будет поймана в route как ConflictError
-
-  return { success: true, booking };
 }
 ```
 
-### Шаблон: Schema (Zod)
+### Шаблон: Schema (`adapters/http/bookings/create-booking.schema.ts`)
 
 ```typescript
-// features/booking/create-booking/create-booking.schema.ts
+// adapters/http/bookings/create-booking.schema.ts
 import { z } from 'zod';
-import type { Booking } from '@/entities/booking';
 
-export const CreateBookingInputSchema = z.object({
-  masterId:        z.string().uuid(),
-  serviceId:       z.string().uuid(),
-  scheduledAt:     z.string().datetime().transform((s) => new Date(s)),
+export const CreateBookingBodySchema = z.object({
+  masterId:  z.string().uuid(),
+  serviceId: z.string().uuid(),
+  startTime: z.string().datetime().transform((s) => new Date(s)),
 });
 
-export type CreateBookingInput = z.infer<typeof CreateBookingInputSchema>;
-
-// Результат — union type, не throw. ИИ видит все исходы явно
-export type CreateBookingResult =
-  | { success: true;  booking: Booking }
-  | { success: false; reason: 'master_not_found' | 'slot_taken' | 'service_not_found' };
+export type CreateBookingBody = z.infer<typeof CreateBookingBodySchema>;
 ```
 
-### Шаблон: Route
+### Шаблон: Controller (`adapters/http/bookings/bookings.controller.ts`)
 
 ```typescript
-// features/booking/create-booking/create-booking.route.ts
-import type Fastify from 'fastify';
-import { CreateBookingInputSchema } from './create-booking.schema';
-import { createBookingHandler } from './create-booking.handler';
-import { BookingRepository } from '@/entities/booking';
-import { MasterRepository } from '@/entities/master';
-import { db } from '@/shared/db';
-import { ConflictError } from '@/shared/errors/app-errors';
+// adapters/http/bookings/bookings.controller.ts
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import { CreateBookingUseCase }         from '@/use-cases/create-booking/create-booking.use-case';
+import { PostgresBookingRepository }    from '@/adapters/repositories/postgres-booking.repo';
+import { PostgresMasterRepository }     from '@/adapters/repositories/postgres-master.repo';
+import { pool }                         from '@/infrastructure/postgres/pool';
+import { eventBus }                     from '@/infrastructure/event-bus';
+import { ConflictError }                from '@/shared/errors/app-errors';
+import type { CreateBookingBody }        from './create-booking.schema';
 
-export function createBookingRoute(app: ReturnType<typeof Fastify>) {
-  app.post('/api/bookings', {
+export async function createBookingController(
+  req: FastifyRequest<{ Body: CreateBookingBody }>,
+  reply: FastifyReply,
+) {
+  const useCase = new CreateBookingUseCase(
+    new PostgresBookingRepository(pool),
+    new PostgresMasterRepository(pool),
+    eventBus,
+  );
+
+  try {
+    const result = await useCase.execute({ ...req.body, clientId: req.user.userId });
+    if (!result.ok) return reply.status(400).send({ error: result.reason });
+    return reply.status(201).send(result.booking);
+  } catch (err: any) {
+    if (err.code === '23P01') throw new ConflictError('Slot is no longer available');
+    throw err;
+  }
+}
+```
+
+### Шаблон: Routes (`adapters/http/bookings/bookings.routes.ts`)
+
+```typescript
+// adapters/http/bookings/bookings.routes.ts
+import type { FastifyInstance }    from 'fastify';
+import { CreateBookingBodySchema } from './create-booking.schema';
+import { createBookingController } from './bookings.controller';
+
+export async function bookingsRoutes(app: FastifyInstance) {
+  app.post('/api/v1/bookings', {
     preHandler: [app.authenticate],
-    schema: { body: CreateBookingInputSchema },
-    handler: async (request, reply) => {
-      try {
-        const result = await createBookingHandler(request.body, {
-          bookingRepo: new BookingRepository(db),
-          masterRepo:  new MasterRepository(db),
-        });
-        if (!result.success) return reply.status(400).send({ error: result.reason });
-        return reply.status(201).send(result.booking);
-      } catch (err: any) {
-        if (err.code === '23P01') throw new ConflictError('Slot is no longer available');
-        throw err;
-      }
-    },
+    schema: { body: CreateBookingBodySchema },
+    handler: createBookingController,
   });
 }
 ```
@@ -1363,18 +1391,20 @@ export function createBookingRoute(app: ReturnType<typeof Fastify>) {
 ### Правило добавления новой фичи
 
 ```
-Новая фича = новая папка. Существующие файлы НЕ трогаются.
+Новая фича = новый Use Case + при необходимости endpoint в Controller.
+Существующие файлы НЕ трогаются.
 
 До:
-  features/booking/create-booking/   ← не трогать
-  features/booking/cancel-booking/   ← не трогать
+  use-cases/create-booking/   ← не трогать
+  use-cases/cancel-booking/   ← не трогать
 
 После добавления "get-available-slots":
-  features/booking/create-booking/   ← не тронуто
-  features/booking/cancel-booking/   ← не тронуто
-  features/booking/get-available-slots/  ← новая папка
+  use-cases/create-booking/        ← не тронуто
+  use-cases/cancel-booking/        ← не тронуто
+  use-cases/get-available-slots/   ← новая папка
 
-  app/routes.ts  ← добавить ОДНУ строку регистрации
+  adapters/http/schedules/schedules.routes.ts  ← добавить ОДНУ строку роута
+  app.ts  ← зарегистрировать plugin если новый routes-файл
 ```
 
 ### Лимиты размера файлов

@@ -18,28 +18,41 @@ Frontend:  React 18 + TypeScript + Vite + @telegram-apps/sdk + TanStack Query + 
 Hosting:   Vercel (frontend) + Railway/VPS (backend)
 ```
 
-## Архитектура backend: вертикальные срезы
+## Архитектура backend: Clean Architecture (4 слоя)
 
-Каждый use case — отдельная папка `src/features/[domain]/[verb-noun]/`.
+**Dependency Rule:** зависимости только ВНУТРЬ. Domain ← Use Cases ← Adapters ← Infrastructure.
 
 ```
-features/
-├── catalog/
-│   └── list-masters/
-│       ├── list-masters.route.ts    ← только регистрация роута (30 строк макс)
-│       ├── list-masters.schema.ts   ← Zod-схемы (50 строк макс)
-│       ├── list-masters.handler.ts  ← бизнес-логика (80 строк макс)
-│       └── list-masters.test.ts     ← тесты рядом с кодом
-├── booking/
-│   ├── create-booking/
-│   ├── cancel-booking/
-│   └── get-available-slots/
-└── master-profile/
-    ├── create-service/
-    └── update-working-hours/
+src/
+├── domain/          ← ЯДРО: Entities, Value Objects, Port-интерфейсы, Domain Services
+│   ├── booking/     ← booking.entity.ts, booking.events.ts
+│   ├── master/
+│   ├── ports/       ← IBookingRepository, INotificationPort, IFileStoragePort, IEventBus
+│   └── services/    ← slot-calculator.ts (чистая функция — нет I/O)
+│
+├── use-cases/       ← ОРКЕСТРАЦИЯ через Ports, нет SQL и HTTP
+│   ├── create-booking/create-booking.use-case.ts
+│   ├── cancel-booking/cancel-booking.use-case.ts
+│   └── get-available-slots/get-available-slots.use-case.ts
+│
+├── adapters/        ← ПЕРЕВОД ФОРМАТОВ: HTTP Controllers + Repo implementations
+│   ├── http/        ← Fastify controllers + routes + Zod schemas
+│   └── repositories/← postgres-booking.repo.ts implements IBookingRepository
+│
+└── infrastructure/  ← ВНЕШНИЕ СИСТЕМЫ: pg Pool, Redis, Grammy, S3, BullMQ
+    ├── postgres/
+    ├── redis/
+    ├── telegram/    ← notification-adapter.ts implements INotificationPort
+    ├── storage/
+    ├── queue/
+    └── event-handlers/  ← подписчики на Domain Events → BullMQ jobs
 ```
 
-**Правило добавления фичи:** создай новую папку, добавь одну строку в `app/routes.ts`. Существующие файлы НЕ трогать.
+**Правило добавления фичи:**
+1. Use Case (`use-cases/verb-noun/`) — оркестрация через Port-интерфейсы
+2. Controller (`adapters/http/noun/`) — перевод HTTP ↔ Use Case DTO
+3. Repo (если нужно) — `adapters/repositories/postgres-noun.repo.ts`
+4. Зарегистрировать в `app.ts`
 
 ## Архитектура frontend: Feature-Sliced Design (4 слоя)
 
@@ -54,21 +67,24 @@ app/       → pages/     → features/    → entities/    → shared/
 ```
 Паттерн: [verb-noun].[type].ts
 
-create-booking.handler.ts    ← бизнес-логика
-create-booking.schema.ts     ← Zod-схема
-create-booking.route.ts      ← регистрация роута
-create-booking.types.ts      ← TypeScript типы
-masters.repo.ts               ← SQL-запросы к masters
+create-booking.use-case.ts   ← Use Case (оркестрация)
+bookings.controller.ts       ← HTTP Controller (adapter)
+postgres-booking.repo.ts     ← Repository (infrastructure adapter)
+booking.entity.ts            ← Domain Entity
+booking.repo.port.ts         ← Port Interface (IBookingRepository)
+booking.events.ts            ← Domain Events
+create-booking.schema.ts     ← Zod-схема (в adapters/http/)
 ```
 
 ## Импорты (path aliases, всегда)
 
 ```typescript
-import { X } from '@/entities/booking';     // ✅
-import { X } from '../../../entities/...';  // ✗ никогда
+import { X } from '@/domain/booking';        // ✅
+import { X } from '@/use-cases/create-booking'; // ✅
+import { X } from '../../../domain/...';     // ✗ никогда
 ```
 
-Aliases: `@/features/`, `@/entities/`, `@/shared/`, `@/app/`
+Aliases: `@/domain/`, `@/use-cases/`, `@/adapters/`, `@/infrastructure/`, `@/shared/`
 
 ## Безопасность
 
@@ -86,9 +102,9 @@ const masterId = req.body.masterId; // ✗
 ## База данных
 
 ```
-Файл схемы:   src/shared/db/migrations/001_initial.sql
-Pool:         src/shared/db/pool.ts (pg Pool singleton)
-Запросы:      ТОЛЬКО в *.repo.ts файлах, нигде больше
+Файл схемы:   src/infrastructure/postgres/migrations/001_initial.sql
+Pool:         src/infrastructure/postgres/pool.ts (pg Pool singleton)
+Запросы:      ТОЛЬКО в adapters/repositories/*.repo.ts, нигде больше
 Транзакции:   явные BEGIN/COMMIT/ROLLBACK через pool.connect()
 ```
 
@@ -105,13 +121,16 @@ WHERE (status IN ('CONFIRMED','PENDING'))
 ## Уведомления
 
 ```
-Очередь:   src/features/notifications/notification.queue.ts (BullMQ)
-Worker:    src/features/notifications/notification.worker.ts
+Port:      src/domain/ports/notification.port.ts → INotificationPort
+Adapter:   src/infrastructure/telegram/notification-adapter.ts (реализует Port)
+Очередь:   src/infrastructure/queue/notification.queue.ts (BullMQ)
+Worker:    src/infrastructure/queue/notification.worker.ts
+Триггер:   src/infrastructure/event-handlers/notification.event-handler.ts
+           (подписчик на Domain Events, Use Cases не трогает напрямую очередь)
 jobId:     'reminder_24h_{bookingId}', 'reminder_2h_{bookingId}'
 
-При отмене/переносе записи — удалить pending jobs:
-  await notificationQueue.getJob(`reminder_24h_${id}`)?.then(j => j?.remove())
-  await notificationQueue.getJob(`reminder_2h_${id}`)?.then(j => j?.remove())
+При отмене/переносе — Use Case публикует BookingCancelled event →
+  event-handler удаляет pending jobs через notificationQueue
 ```
 
 ## Telegram API (frontend)
@@ -148,14 +167,16 @@ Zustand        — только UI-стейт без TTL:
 
 ## Нельзя никогда
 
-- SQL-запросы вне `*.repo.ts`
-- HTTP-объекты (req/res) вне `*.handler.ts` / `*.route.ts`
-- `window.Telegram.WebApp` вне `src/shared/lib/telegram.ts`
-- Импорты между features на одном уровне
+- SQL-запросы вне `adapters/repositories/*.repo.ts`
+- HTTP-объекты (req/res) вне `adapters/http/*.controller.ts`
+- Domain / Use Cases не импортируют из `infrastructure/` или `adapters/http/`
+- `window.Telegram.WebApp` вне `src/shared/lib/telegram.ts` (frontend)
+- Импорты между features на одном уровне (FSD)
 - `export * from` (только явные named exports)
 - Файл > 200 строк — разбить на два
 - `fetch()` в React-компонентах — только через TanStack Query hooks
 - `master_id` из `req.body` — только из `req.user.masterId`
+- Use Case напрямую вызывает `notificationQueue` — только через `IEventBus`
 
 ## Команды
 

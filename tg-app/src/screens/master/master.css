@@ -141,17 +141,37 @@
   align-items: center;
   padding: 24px 16px 8px;
 }
+.profile-edit-avatar-wrap {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+.profile-edit-avatar-wrap:active { opacity: 0.8; }
 .profile-edit-avatar {
   width: 88px; height: 88px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 30px; font-weight: 700; color: #fff;
   box-shadow: var(--shadow-md);
+  background-size: cover;
+  background-position: center;
+}
+.avatar-edit-badge {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 26px; height: 26px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  border: 2px solid var(--bg);
+  pointer-events: none;
 }
 
 /* ─── Портфолио — управление ─────────────────────────────── */
 .gallery-manage-row {
   display: flex;
+  flex-wrap: nowrap;
   gap: 10px;
   padding: 8px 16px 16px;
   overflow-x: auto;

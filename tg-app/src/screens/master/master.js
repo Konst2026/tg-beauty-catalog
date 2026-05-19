@@ -129,7 +129,7 @@ function renderMasterProfileEdit() {
   const m = getMasterById('m1');
 
   const galleryItems = m.gallery.map((g, idx) => `
-    <div class="gallery-manage-item" style="background:${g.bg}" data-replace-idx="${idx}">
+    <div class="gallery-manage-item" style="background-image:${g.bg}" data-replace-idx="${idx}">
       <div class="gallery-edit-badge">📷</div>
       <span class="gallery-item-label">${g.label}</span>
       <button class="gallery-del-btn" data-gallery-idx="${idx}">✕</button>
@@ -139,7 +139,10 @@ function renderMasterProfileEdit() {
     ${renderBackBar()}
     <div class="screen-header">Мой профиль</div>
     <div class="profile-edit-top">
-      <div class="profile-edit-avatar" style="background:${m.avatar}">${m.initials}</div>
+      <div id="btn-avatar-edit" class="profile-edit-avatar-wrap">
+        <div class="profile-edit-avatar" style="background-image:${m.avatar}">${m.avatar.startsWith('url(') ? '' : m.initials}</div>
+        <div class="avatar-edit-badge">📷</div>
+      </div>
     </div>
     <div class="form-section">
       <div class="form-group">

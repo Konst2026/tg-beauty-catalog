@@ -75,7 +75,11 @@ function navigate(screen, data = {}, direction = 'forward') {
 
   container.appendChild(newEl);
 
-  if (oldEl) setTimeout(() => oldEl.remove(), 260);
+  if (oldEl && direction !== 'none') {
+    setTimeout(() => oldEl.remove(), 260);
+  } else if (oldEl) {
+    oldEl.remove();
+  }
 
   updateTabBar(screen);
   updateBackButton(screen);
@@ -222,6 +226,7 @@ function init() {
 
   state.tgUser = tg.initDataUnsafe?.user || { first_name: 'Пользователь' };
   applyTheme();
+  loadMasterFromStorage();
 
   document.getElementById('screen-container').addEventListener('click', e => {
     if (e.target.closest('[data-action="back"]')) goBack();

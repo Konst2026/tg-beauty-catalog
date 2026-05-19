@@ -228,8 +228,29 @@ function bindMasterProfileEditEvents() {
     const parts = name.split(' ');
     m.initials  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
 
+    saveMasterToStorage();
     tg.HapticFeedback.notificationOccurred('success');
-    showToast('Профиль сохранён ✓');
+    showToast('Изменения сохранены');
+  });
+
+  document.getElementById('btn-avatar-edit')?.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) { showToast('Файл слишком большой (макс. 10 МБ)'); return; }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        getMasterById('m1').avatar = `url(${ev.target.result})`;
+        saveMasterToStorage();
+        navigate('master-profile-edit', {}, 'none');
+        showToast('Фото профиля обновлено ✓');
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
   });
 
   document.querySelectorAll('.gallery-del-btn').forEach(btn => {
@@ -237,6 +258,7 @@ function bindMasterProfileEditEvents() {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.galleryIdx, 10);
       getMasterById('m1').gallery.splice(idx, 1);
+      saveMasterToStorage();
       navigate('master-profile-edit', {}, 'none');
     });
   });
@@ -254,6 +276,7 @@ function bindMasterProfileEditEvents() {
         const reader = new FileReader();
         reader.onload = (ev) => {
           getMasterById('m1').gallery[idx] = { bg: `url(${ev.target.result})`, label: '' };
+          saveMasterToStorage();
           navigate('master-profile-edit', {}, 'none');
           showToast('Фото заменено ✓');
         };
@@ -280,6 +303,7 @@ function bindMasterProfileEditEvents() {
           bg: `url(${ev.target.result})`,
           label: '',
         });
+        saveMasterToStorage();
         navigate('master-profile-edit', {}, 'none');
         showToast('Фото добавлено ✓');
       };
@@ -309,7 +333,7 @@ function bindMasterServiceEditEvents() {
     m.priceFrom = Math.min(...m.services.map(s => s.price));
 
     tg.HapticFeedback.notificationOccurred('success');
-    showToast(state.editingServiceId ? 'Услуга обновлена ✓' : 'Услуга добавлена ✓');
+    showToast(state.editingServiceId ? 'Изменения сохранены' : 'Услуга добавлена ✓');
     goBack();
   });
 
@@ -361,6 +385,6 @@ function bindMasterScheduleEvents() {
       MASTER_DASHBOARD.schedule[d][inp.dataset.type] = inp.value;
     });
     tg.HapticFeedback.notificationOccurred('success');
-    showToast('Расписание сохранено ✓');
+    showToast('Изменения сохранены');
   });
 }

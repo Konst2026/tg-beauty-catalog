@@ -52,7 +52,7 @@ function renderCatalog() {
   const masterCards = masters.length
     ? masters.map(m => `
       <div class="master-card" data-master-id="${m.id}">
-        <div class="master-avatar" style="background:${m.avatar}">${m.initials}</div>
+        <div class="master-avatar" style="background-image:${m.avatar}">${m.avatar.startsWith('url(') ? '' : m.initials}</div>
         <div class="master-info">
           <div class="master-name">${m.name}</div>
           <div class="master-specialty">${m.specialty}</div>
@@ -65,6 +65,7 @@ function renderCatalog() {
             <span class="master-price">от ${formatPrice(m.priceFrom)}</span>
             ${m.availableToday ? '<span class="badge-today">Сегодня свободно</span>' : ''}
           </div>
+          ${m.promo ? `<div class="master-card-promo">🎉 ${m.promo}</div>` : ''}
         </div>
       </div>`).join('')
     : `<div class="empty-state">
@@ -89,7 +90,7 @@ function renderMasterProfile() {
   if (!m) return renderCatalog();
 
   const gallery = m.gallery.map(g =>
-    `<div class="gallery-item" style="background:${g.bg}">${g.label}</div>`
+    `<div class="gallery-item" style="background-image:${g.bg}">${g.label}</div>`
   ).join('');
 
   const services = m.services.map(s => `
@@ -106,9 +107,7 @@ function renderMasterProfile() {
 
   return `
     ${renderBackBar()}
-    <div class="profile-hero" style="background:${m.avatar}">
-      <div class="profile-hero-avatar" style="background:${m.avatar}">${m.initials}</div>
-    </div>
+    <div class="profile-hero" style="background-image:${m.avatar}"></div>
     <div class="profile-body">
       <div class="profile-name">${m.name}</div>
       <div class="profile-rating">
@@ -117,6 +116,7 @@ function renderMasterProfile() {
         <span class="review-cnt">${m.reviewCount} отзывов · 📍 ${m.city}</span>
       </div>
       <div class="profile-bio">${m.bio}</div>
+      ${m.promo ? `<div class="promo-banner"><span class="promo-banner-icon">🎉</span><span class="promo-banner-text">${m.promo}</span></div>` : ''}
       <div class="section-title">Портфолио</div>
       <div class="gallery-scroll">${gallery}</div>
       <div class="section-title">Услуги</div>
@@ -153,7 +153,7 @@ function renderDateTime() {
   return `
     ${renderBackBar()}
     <div class="booking-mini-header">
-      <div class="mini-avatar" style="background:${m.avatar}">${m.initials}</div>
+      <div class="mini-avatar" style="background-image:${m.avatar}">${m.avatar.startsWith('url(') ? '' : m.initials}</div>
       <div>
         <div class="mini-master">${m.name}</div>
         <div class="mini-service">${svc.name} · ${formatPrice(svc.price)}</div>
@@ -182,7 +182,7 @@ function renderBookingSummary() {
     <div class="screen-header">Подтверждение</div>
     <div class="summary-card">
       <div class="summary-master-row">
-        <div class="mini-avatar" style="background:${m.avatar}">${m.initials}</div>
+        <div class="mini-avatar" style="background-image:${m.avatar}">${m.avatar.startsWith('url(') ? '' : m.initials}</div>
         <div>
           <div class="summary-master-name">${m.name}</div>
           <div class="summary-master-spec">${m.specialty}</div>

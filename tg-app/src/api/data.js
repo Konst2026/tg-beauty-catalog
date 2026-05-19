@@ -279,3 +279,32 @@ function formatDate(dateStr) {
 function formatPrice(price) {
   return price.toLocaleString('ru-RU') + ' ₽';
 }
+
+// ─── Персистентность профиля мастера ─────────────────────────
+
+function saveMasterToStorage() {
+  const m = getMasterById('m1');
+  if (!m) return;
+  try {
+    localStorage.setItem('bb_master_m1', JSON.stringify(m));
+  } catch (e) {
+    // Фото слишком большие — сохраняем без base64 изображений
+    try {
+      const safe = Object.assign({}, m, {
+        gallery: m.gallery.filter(g => !g.bg.startsWith('url(data:')),
+      });
+      localStorage.setItem('bb_master_m1', JSON.stringify(safe));
+    } catch (e2) {}
+  }
+}
+
+function loadMasterFromStorage() {
+  try {
+    const raw = localStorage.getItem('bb_master_m1');
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    const m = getMasterById('m1');
+    if (!m || !saved) return;
+    Object.assign(m, saved);
+  } catch (e) {}
+}

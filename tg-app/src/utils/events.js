@@ -11,9 +11,11 @@ function bindScreenEvents(screen) {
     case 'booking-success':   return bindBookingSuccessEvents();
     case 'my-bookings':       return bindMyBookingsEvents();
     case 'profile':           return bindProfileEvents();
-    case 'master-dashboard':  return bindMasterDashboardEvents();
-    case 'master-services':   return bindMasterServicesEvents();
-    case 'master-schedule':   return bindMasterScheduleEvents();
+    case 'master-dashboard':    return bindMasterDashboardEvents();
+    case 'master-services':     return bindMasterServicesEvents();
+    case 'master-schedule':     return bindMasterScheduleEvents();
+    case 'master-profile-edit': return bindMasterProfileEditEvents();
+    case 'master-service-edit': return bindMasterServiceEditEvents();
   }
 }
 
@@ -194,12 +196,95 @@ function bindMasterDashboardEvents() {
 }
 
 function bindMasterServicesEvents() {
-  document.getElementById('btn-add-service')?.addEventListener('click', () =>
-    showToast('Функция в разработке')
-  );
+  document.getElementById('btn-add-service')?.addEventListener('click', () => {
+    state.editingServiceId = null;
+    navigate('master-service-edit', {}, 'forward');
+  });
+
   document.querySelectorAll('[data-edit-svc]').forEach(btn =>
-    btn.addEventListener('click', () => showToast('Редактирование в разработке'))
+    btn.addEventListener('click', () => {
+      state.editingServiceId = btn.dataset.editSvc;
+      navigate('master-service-edit', {}, 'forward');
+    })
   );
+}
+
+function bindMasterProfileEditEvents() {
+  document.getElementById('btn-save-profile')?.addEventListener('click', () => {
+    const name     = document.getElementById('inp-master-name')?.value.trim();
+    const specialty = document.getElementById('inp-master-specialty')?.value.trim();
+    const city     = document.getElementById('inp-master-city')?.value.trim();
+    const bio      = document.getElementById('inp-master-bio')?.value.trim();
+
+    if (!name) { showToast('Введите имя'); return; }
+
+    const m = getMasterById('m1');
+    m.name      = name;
+    m.specialty = specialty;
+    m.city      = city;
+    m.bio       = bio;
+    const parts = name.split(' ');
+    m.initials  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+
+    tg.HapticFeedback.notificationOccurred('success');
+    showToast('Профиль сохранён ✓');
+  });
+
+  document.querySelectorAll('.gallery-del-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.galleryIdx, 10);
+      getMasterById('m1').gallery.splice(idx, 1);
+      navigate('master-profile-edit', {}, 'none');
+    });
+  });
+
+  document.getElementById('btn-add-gallery')?.addEventListener('click', () => {
+    showToast('Загрузка фото — в разработке');
+  });
+
+  document.getElementById('menu-master-schedule')?.addEventListener('click', () => {
+    navigate('master-schedule', {}, 'forward');
+  });
+
+  document.getElementById('menu-master-services')?.addEventListener('click', () => {
+    navigate('master-services', {}, 'forward');
+  });
+}
+
+function bindMasterServiceEditEvents() {
+  document.getElementById('btn-save-service')?.addEventListener('click', () => {
+    const name     = document.getElementById('inp-svc-name')?.value.trim();
+    const duration = parseInt(document.getElementById('inp-svc-duration')?.value, 10);
+    const price    = parseInt(document.getElementById('inp-svc-price')?.value, 10);
+
+    if (!name)         { showToast('Введите название'); return; }
+    if (!price || price < 1) { showToast('Введите стоимость'); return; }
+
+    const m = getMasterById('m1');
+    if (state.editingServiceId) {
+      const svc = m.services.find(s => s.id === state.editingServiceId);
+      if (svc) { svc.name = name; svc.duration = duration; svc.price = price; }
+    } else {
+      m.services.push({ id: 's_' + Date.now(), name, duration, price });
+    }
+    m.priceFrom = Math.min(...m.services.map(s => s.price));
+
+    tg.HapticFeedback.notificationOccurred('success');
+    showToast(state.editingServiceId ? 'Услуга обновлена ✓' : 'Услуга добавлена ✓');
+    goBack();
+  });
+
+  document.getElementById('btn-delete-service')?.addEventListener('click', () => {
+    tg.showConfirm('Удалить услугу?', (ok) => {
+      if (!ok) return;
+      const m = getMasterById('m1');
+      m.services = m.services.filter(s => s.id !== state.editingServiceId);
+      if (m.services.length) m.priceFrom = Math.min(...m.services.map(s => s.price));
+      tg.HapticFeedback.notificationOccurred('warning');
+      showToast('Услуга удалена');
+      goBack();
+    });
+  });
 }
 
 function bindMasterScheduleEvents() {

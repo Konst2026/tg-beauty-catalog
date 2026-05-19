@@ -12,6 +12,7 @@ const state = {
   selectedSlot: null,
   catalogFilter: 'all',
   tgUser: null,
+  editingServiceId: null,
 };
 
 // ─── Telegram SDK (мок для разработки в браузере) ─────────────
@@ -45,7 +46,7 @@ if (!tg) {
 }
 
 // ─── Роутер ───────────────────────────────────────────────────
-const NO_TAB = new Set(['splash', 'role-select', 'date-time', 'booking-summary', 'booking-success']);
+const NO_TAB = new Set(['splash', 'role-select', 'date-time', 'booking-summary', 'booking-success', 'master-profile-edit', 'master-service-edit']);
 
 function navigate(screen, data = {}, direction = 'forward') {
   Object.assign(state, data);
@@ -111,7 +112,7 @@ function switchTab(tabId) {
     'master-home':      'master-dashboard',
     'master-orders':    'master-orders',
     'master-services':  'master-services',
-    'master-profile':   'master-schedule',
+    'master-profile':   'master-profile-edit',
   };
   state.activeTab = tabId;
   state.screenHistory = [];
@@ -130,10 +131,12 @@ function renderScreen(screen) {
     case 'booking-success':   return renderBookingSuccess();
     case 'my-bookings':       return renderMyBookings();
     case 'profile':           return renderProfile();
-    case 'master-dashboard':  return renderMasterDashboard();
-    case 'master-orders':     return renderMasterOrders();
-    case 'master-services':   return renderMasterServices();
-    case 'master-schedule':   return renderMasterSchedule();
+    case 'master-dashboard':    return renderMasterDashboard();
+    case 'master-orders':       return renderMasterOrders();
+    case 'master-services':     return renderMasterServices();
+    case 'master-schedule':     return renderMasterSchedule();
+    case 'master-profile-edit': return renderMasterProfileEdit();
+    case 'master-service-edit': return renderMasterServiceEdit();
     default:                  return renderCatalog();
   }
 }

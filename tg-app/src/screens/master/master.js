@@ -3,6 +3,7 @@
 // Главная кабинета мастера
 function renderMasterDashboard() {
   const d = MASTER_DASHBOARD;
+  const m = getMasterById('m1');
 
   const todayHtml = d.todayBookings.length
     ? d.todayBookings.map(b => `
@@ -19,8 +20,8 @@ function renderMasterDashboard() {
   return `
     ${renderBackBar()}
     <div class="master-banner">
-      <div class="master-banner-name">Мария Иванова</div>
-      <div class="master-banner-role">Мастер маникюра · педикюра</div>
+      <div class="master-banner-name">${m.name}</div>
+      <div class="master-banner-role">${m.specialty}</div>
     </div>
     <div class="stats-grid">
       <div class="stat-card">
@@ -76,12 +77,114 @@ function renderMasterServices() {
   return `
     ${renderBackBar()}
     <div class="screen-header">Мои услуги</div>
-    <div class="p-16">
-      <div class="section-title" style="margin-top:16px">Прайс-лист</div>
+    <div style="padding:8px 16px 0">
+      <div class="section-title" style="margin-top:8px">Прайс-лист (${m.services.length})</div>
     </div>
-    ${items}
+    ${items || '<div style="padding:16px;color:var(--hint)">Услуги не добавлены</div>'}
     <div class="screen-footer">
       <button class="btn btn-primary" id="btn-add-service">+ Добавить услугу</button>
+    </div>`;
+}
+
+// Редактирование / добавление услуги
+function renderMasterServiceEdit() {
+  const isNew = !state.editingServiceId;
+  const svc = isNew ? null : getServiceById('m1', state.editingServiceId);
+  const curDuration = svc ? svc.duration : 60;
+
+  const durations = [15, 20, 30, 45, 60, 75, 90, 120, 150, 180];
+  const durationOptions = durations.map(d =>
+    `<option value="${d}" ${curDuration === d ? 'selected' : ''}>${d} мин</option>`
+  ).join('');
+
+  return `
+    ${renderBackBar()}
+    <div class="screen-header">${isNew ? 'Новая услуга' : 'Редактировать услугу'}</div>
+    <div class="form-section">
+      <div class="form-group">
+        <label class="form-label">Название услуги</label>
+        <input class="form-input" id="inp-svc-name" type="text"
+          value="${svc ? svc.name : ''}" placeholder="Маникюр классический">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Длительность</label>
+        <select class="form-select" id="inp-svc-duration">${durationOptions}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Стоимость, ₽</label>
+        <input class="form-input" id="inp-svc-price" type="number" inputmode="numeric"
+          value="${svc ? svc.price : ''}" placeholder="1200">
+      </div>
+    </div>
+    <div class="screen-footer">
+      <button class="btn btn-primary" id="btn-save-service">
+        ${isNew ? '+ Добавить услугу' : 'Сохранить изменения'}
+      </button>
+      ${!isNew ? `<button class="btn btn-danger" style="margin-top:10px" id="btn-delete-service">Удалить услугу</button>` : ''}
+    </div>`;
+}
+
+// Редактирование профиля мастера
+function renderMasterProfileEdit() {
+  const m = getMasterById('m1');
+
+  const galleryItems = m.gallery.map((g, idx) => `
+    <div class="gallery-manage-item" style="background:${g.bg}">
+      <span class="gallery-item-label">${g.label}</span>
+      <button class="gallery-del-btn" data-gallery-idx="${idx}">✕</button>
+    </div>`).join('');
+
+  return `
+    ${renderBackBar()}
+    <div class="screen-header">Мой профиль</div>
+    <div class="profile-edit-top">
+      <div class="profile-edit-avatar" style="background:${m.avatar}">${m.initials}</div>
+    </div>
+    <div class="form-section">
+      <div class="form-group">
+        <label class="form-label">Имя и фамилия</label>
+        <input class="form-input" id="inp-master-name" type="text"
+          value="${m.name}" placeholder="Имя Фамилия">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Специализация</label>
+        <input class="form-input" id="inp-master-specialty" type="text"
+          value="${m.specialty}" placeholder="Маникюр · педикюр">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Город и район</label>
+        <input class="form-input" id="inp-master-city" type="text"
+          value="${m.city}" placeholder="Москва, Таганская">
+      </div>
+      <div class="form-group">
+        <label class="form-label">О себе</label>
+        <textarea class="form-textarea" id="inp-master-bio"
+          placeholder="Расскажите о себе и своём опыте...">${m.bio}</textarea>
+      </div>
+    </div>
+    <div class="section-title" style="padding:0 16px;margin-top:4px">Портфолио</div>
+    <div class="gallery-manage-row">
+      ${galleryItems}
+      <button class="gallery-add-btn" id="btn-add-gallery">
+        <span class="gallery-add-icon">📷</span>
+        <span>Добавить</span>
+      </button>
+    </div>
+    <div class="section-title" style="padding:0 16px;margin-top:4px">Дополнительно</div>
+    <div class="profile-menu">
+      <div class="profile-menu-item" id="menu-master-schedule">
+        <span class="profile-menu-icon">🗓️</span>
+        <span class="profile-menu-label">Рабочие часы</span>
+        <span class="profile-menu-arrow">›</span>
+      </div>
+      <div class="profile-menu-item" id="menu-master-services">
+        <span class="profile-menu-icon">✂️</span>
+        <span class="profile-menu-label">Мои услуги</span>
+        <span class="profile-menu-arrow">›</span>
+      </div>
+    </div>
+    <div class="screen-footer">
+      <button class="btn btn-primary" id="btn-save-profile">Сохранить изменения</button>
     </div>`;
 }
 

@@ -33,7 +33,7 @@ function renderMasterDashboard() {
         <div class="stat-card-label">Выручка</div>
       </div>
     </div>
-    <div class="section-title" style="padding:0 16px;margin-top:4px">Сегодня</div>
+    <div class="section-title" style="padding:0 16px;margin-top:4px">Сегодня ко мне записались</div>
     <div class="today-list">${todayHtml}</div>`;
 }
 

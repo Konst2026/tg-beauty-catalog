@@ -17,6 +17,7 @@ function renderMasterDashboard() {
     : `<div style="padding:16px;color:var(--hint);font-size:14px">Записей нет</div>`;
 
   return `
+    ${renderBackBar()}
     <div class="master-banner">
       <div class="master-banner-name">Мария Иванова</div>
       <div class="master-banner-role">Мастер маникюра · педикюра</div>
@@ -54,6 +55,7 @@ function renderMasterOrders() {
     </div>`).join('');
 
   return `
+    ${renderBackBar()}
     <div class="screen-header">Мои записи</div>
     <div class="section-title" style="margin:20px 16px 12px">Все записи</div>
     ${items || '<div style="padding:0 16px;color:var(--hint)">Нет записей</div>'}`;
@@ -72,6 +74,7 @@ function renderMasterServices() {
     </div>`).join('');
 
   return `
+    ${renderBackBar()}
     <div class="screen-header">Мои услуги</div>
     <div class="p-16">
       <div class="section-title" style="margin-top:16px">Прайс-лист</div>
@@ -108,6 +111,7 @@ function renderMasterSchedule() {
   }).join('');
 
   return `
+    ${renderBackBar()}
     <div class="screen-header">Расписание</div>
     <div class="p-16">
       <div class="section-title" style="margin-top:16px">Рабочие часы</div>

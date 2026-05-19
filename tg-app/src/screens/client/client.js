@@ -46,6 +46,7 @@ function renderCatalog() {
       </div>`;
 
   return `
+    ${renderBackBar()}
     <div class="catalog-header">
       <div class="greeting">BeautyBook</div>
       <div class="greeting-sub">Найди своего мастера</div>
@@ -76,6 +77,7 @@ function renderMasterProfile() {
     </div>`).join('');
 
   return `
+    ${renderBackBar()}
     <div class="profile-hero" style="background:${m.avatar}">
       <div class="profile-hero-avatar" style="background:${m.avatar}">${m.initials}</div>
     </div>
@@ -121,6 +123,7 @@ function renderDateTime() {
     : `<p class="no-slots">Нет свободных слотов</p>`;
 
   return `
+    ${renderBackBar()}
     <div class="booking-mini-header">
       <div class="mini-avatar" style="background:${m.avatar}">${m.initials}</div>
       <div>
@@ -147,6 +150,7 @@ function renderBookingSummary() {
   if (!m || !svc) return '';
 
   return `
+    ${renderBackBar()}
     <div class="screen-header">Подтверждение</div>
     <div class="summary-card">
       <div class="summary-master-row">
@@ -242,6 +246,7 @@ function renderMyBookings() {
   const emptyMsg = (text) => `<div style="padding:16px;color:var(--hint);font-size:14px">${text}</div>`;
 
   return `
+    ${renderBackBar()}
     <div class="screen-header">Мои записи</div>
     <div class="section-title" style="margin:20px 16px 12px">Предстоящие</div>
     ${upcoming.length ? upcoming.map(card).join('') : emptyMsg('Нет предстоящих записей')}
@@ -257,6 +262,7 @@ function renderProfile() {
   const completed = MY_BOOKINGS.filter(b => b.status === 'completed').length;
 
   return `
+    ${renderBackBar()}
     <div class="user-profile-card">
       <div class="user-avatar-big">${ini}</div>
       <div>

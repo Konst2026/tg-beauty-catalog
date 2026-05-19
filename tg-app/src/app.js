@@ -186,6 +186,16 @@ function updateBackButton(screen) {
   }
 }
 
+function renderBackBar() {
+  if (state.screenHistory.length === 0) return '';
+  return `
+    <div class="back-bar">
+      <button class="back-btn" data-action="back">
+        <span class="back-icon">‹</span>Назад
+      </button>
+    </div>`;
+}
+
 // ─── Тост ─────────────────────────────────────────────────────
 function showToast(msg) {
   const el = document.getElementById('toast');
@@ -208,6 +218,10 @@ function init() {
 
   state.tgUser = tg.initDataUnsafe?.user || { first_name: 'Пользователь' };
   applyTheme();
+
+  document.getElementById('screen-container').addEventListener('click', e => {
+    if (e.target.closest('[data-action="back"]')) goBack();
+  });
 
   navigate('splash', {}, 'none');
 

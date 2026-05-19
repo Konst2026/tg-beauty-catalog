@@ -46,7 +46,7 @@ if (!tg) {
 }
 
 // ─── Роутер ───────────────────────────────────────────────────
-const NO_TAB = new Set(['splash', 'role-select', 'date-time', 'booking-summary', 'booking-success', 'master-profile-edit', 'master-service-edit']);
+const NO_TAB = new Set(['splash', 'role-select', 'date-time', 'booking-summary', 'booking-success', 'master-service-edit']);
 
 function navigate(screen, data = {}, direction = 'forward') {
   Object.assign(state, data);

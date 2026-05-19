@@ -1,6 +1,6 @@
 # Architecture.md — TG Beauty Marketplace
 
-> Версия: 2.0 | Дата: 2026-05-18 (ревизия после архитектурного аудита)
+> Версия: 3.0 | Дата: 2026-05-19 (второй архитектурный аудит — Clean Architecture compliance)
 > Продукт: Telegram Mini App — маркетплейс бьюти-мастеров  
 > Код пишется ИИ → архитектура проектировалась под AI-разработку  
 > Основа: Clean Architecture (Robert C. Martin, 2017) + Feature-Sliced Design
@@ -27,6 +27,23 @@
 | **MEDIUM** | Idempotency | `POST /bookings` без idempotency key → двойная запись при retry | §6 | ✅ Добавлен `Idempotency-Key` header |
 | **MEDIUM** | Screaming Arch | Диаграмма "Fastify HTTP Server" в центре — скрим инфраструктуры, не домена | §4 | ✅ Переработана диаграмма |
 | **MEDIUM** | Testing | Нет стратегии unit/integration тестов | отсутствовал | ✅ Добавлен §16 |
+
+---
+
+## Аудит-отчёт v2.0 → v3.0
+
+Второй аудит по пяти группам: Clean Architecture, SOLID, признаки деградации, AI-friendly architecture, Operational Excellence.
+
+### Найденные нарушения и исправления
+
+| Severity | Группа | Критерий | Нарушение | Статус |
+|---|---|---|---|---|
+| **CRITICAL** | OCP | A3 | `user_role` как PostgreSQL ENUM — добавление роли `moderator` потребует `DROP TYPE` + миграцию БД | ✅ §5: изменён на `VARCHAR(20) CHECK` |
+| **CRITICAL** | DIP | A4/A5 | Три Port-интерфейса отсутствовали: `IScheduleRepository`, `ICachePort`, `IIdempotencyStore` — Use Cases зависели бы на конкретные реализации | ✅ §6.2: добавлены все три Port |
+| **CRITICAL** | Dependency Rule | A1 | Нет Composition Root: Controller мог импортировать Infrastructure напрямую; `registerNotificationHandlers()` не вызывался явно | ✅ §6.5: добавлен Composition Root с явной регистрацией |
+| **HIGH** | SRP / Clean Arch | A2/B3 | SQL-транзакция двойного бронирования описана в `bookings.service.ts` — Use Case слоя. Транзакции и SQL принадлежат Repository | ✅ §8: код перемещён в `postgres-booking.repo.ts` |
+| **HIGH** | DIP | A5 | Шаблон Controller в §12 импортировал `pool` и `eventBus` из `@/infrastructure/` — нарушение Dependency Rule (Adapter зависит на Infrastructure) | ✅ §12: заменён на factory function `makeBookingsRoutes(deps)` |
+| **MEDIUM** | AI-friendly | D1/D2 | Аудит-отчёт содержал только v1.0→v2.0 находки, текущая версия не отражала новые нарушения | ✅ Добавлен данный раздел v2.0→v3.0 |
 
 ---
 
@@ -378,7 +395,8 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;  -- для EXCLUDE GIST
 -- ============================================================
 -- ПОЛЬЗОВАТЕЛИ (единая таблица, роль через поле)
 -- ============================================================
-CREATE TYPE user_role AS ENUM ('client', 'master', 'admin');
+-- user_role — VARCHAR, не ENUM (OCP: новая роль = только ALTER TABLE CHECK,
+-- не DROP/CREATE TYPE; аналогично booking_status — единообразный подход)
 
 CREATE TABLE users (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -386,7 +404,8 @@ CREATE TABLE users (
   username     VARCHAR(100),
   full_name    VARCHAR(200) NOT NULL,
   phone        VARCHAR(30),
-  role         user_role NOT NULL DEFAULT 'client',
+  role         VARCHAR(20) NOT NULL DEFAULT 'client'
+                 CHECK (role IN ('client', 'master', 'admin')),
   is_active    BOOLEAN NOT NULL DEFAULT true,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -660,6 +679,27 @@ export interface IFileStoragePort {
   delete(url: string): Promise<void>;
 }
 
+// src/domain/ports/schedule.repo.port.ts
+export interface IScheduleRepository {
+  findDefaultByMaster(masterId: string): Promise<Schedule | null>;
+  findWeeklyAvailability(scheduleId: string): Promise<WeeklyAvailability[]>;
+  findOverrideForDate(scheduleId: string, date: Date): Promise<AvailabilityOverride | null>;
+  save(schedule: Schedule): Promise<Schedule>;
+}
+
+// src/domain/ports/cache.port.ts  ← Redis как порт, не прямая зависимость
+export interface ICachePort {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ttlSeconds: number): Promise<void>;
+  del(key: string): Promise<void>;
+}
+
+// src/domain/ports/idempotency.port.ts
+export interface IIdempotencyStore {
+  get(key: string): Promise<unknown | null>;
+  set(key: string, value: unknown, ttlSeconds: number): Promise<void>;
+}
+
 // src/domain/services/slot-calculator.ts — чистая функция, без зависимостей
 export function generateAvailableSlots(
   workingHours: WorkingHours,
@@ -779,6 +819,56 @@ GET    /api/v1/admin/users
 
 **Idempotency-Key** для `POST /api/v1/bookings`: сервер кэширует ответ в Redis на 24ч по ключу `idem:{key}`. Повторный запрос с тем же ключом возвращает кэшированный результат без создания новой записи.
 
+### 6.5 Composition Root — единственное место, где сходятся все слои
+
+**Проблема без Composition Root:** Controller импортирует `pool` и `eventBus` из Infrastructure напрямую → нарушен Dependency Rule (Adapter зависит на Infrastructure вместо обратного).
+
+**Правило:** только `app.ts` имеет право импортировать из всех слоёв одновременно.  
+Controllers и Routes не должны импортировать ничего из `@/infrastructure/`.
+
+```typescript
+// app.ts — ЕДИНСТВЕННЫЙ Composition Root
+// Только этот файл видит Infrastructure + Adapters + Use Cases вместе
+
+import { pool }                          from '@/infrastructure/postgres/pool';
+import { redisClient }                   from '@/infrastructure/redis/client';
+import { eventBus }                      from '@/infrastructure/event-bus';
+import { notificationQueue }             from '@/infrastructure/queue/notification.queue';
+import { PostgresBookingRepository }     from '@/adapters/repositories/postgres-booking.repo';
+import { PostgresMasterRepository }      from '@/adapters/repositories/postgres-master.repo';
+import { PostgresScheduleRepository }    from '@/adapters/repositories/postgres-schedule.repo';
+import { RedisCache }                    from '@/infrastructure/redis/redis-cache.adapter';   // implements ICachePort
+import { RedisIdempotencyStore }         from '@/infrastructure/redis/redis-idempotency.adapter'; // implements IIdempotencyStore
+import { CreateBookingUseCase }          from '@/use-cases/create-booking/create-booking.use-case';
+import { CancelBookingUseCase }          from '@/use-cases/cancel-booking/cancel-booking.use-case';
+import { GetAvailableSlotsUseCase }      from '@/use-cases/get-available-slots/get-available-slots.use-case';
+import { makeBookingsRoutes }            from '@/adapters/http/bookings/bookings.routes';
+import { makeSchedulesRoutes }           from '@/adapters/http/schedules/schedules.routes';
+import { registerNotificationHandlers }  from '@/infrastructure/event-handlers/notification.event-handler';
+
+// ── 1. Реализации Port-интерфейсов ────────────────────────────────────────
+const bookingRepo   = new PostgresBookingRepository(pool);
+const masterRepo    = new PostgresMasterRepository(pool);
+const scheduleRepo  = new PostgresScheduleRepository(pool);
+const cache         = new RedisCache(redisClient);
+const idempotency   = new RedisIdempotencyStore(redisClient);
+
+// ── 2. Use Cases — получают интерфейсы, не конкретные реализации ──────────
+const createBookingUseCase   = new CreateBookingUseCase(bookingRepo, masterRepo, eventBus, idempotency);
+const cancelBookingUseCase   = new CancelBookingUseCase(bookingRepo, eventBus);
+const getSlotsUseCase        = new GetAvailableSlotsUseCase(scheduleRepo, bookingRepo, cache);
+
+// ── 3. Регистрация Domain Event-обработчиков (явно, нет скрытой "магии") ──
+registerNotificationHandlers(eventBus, notificationQueue);
+// Если эта строка отсутствует — уведомления тихо не работают. Явность важна.
+
+// ── 4. Роуты получают Use Cases через параметры — НЕ импортируют Infrastructure
+app.register(makeBookingsRoutes({ createBookingUseCase, cancelBookingUseCase }));
+app.register(makeSchedulesRoutes({ getSlotsUseCase }));
+```
+
+**Итог:** Controllers видят только Use Case-интерфейсы. Замена PostgreSQL → другой БД затрагивает только `adapters/repositories/` + строки в `app.ts`.
+
 ### Правила слоёв
 
 - Нет circular dependencies между слоями
@@ -786,6 +876,8 @@ GET    /api/v1/admin/users
 - Нет HTTP-объектов (req/res) вне Controllers/Handlers
 - Нет cross-feature импортов между Use Cases
 - Use Cases зависят на интерфейсы (Ports), не на конкретные классы
+- **Controllers не импортируют из `@/infrastructure/` — только из `@/use-cases/` и `@/shared/`**
+- **`app.ts` — единственный Composition Root; только он импортирует из всех слоёв**
 
 ---
 
@@ -908,22 +1000,47 @@ EXCLUDE USING GIST (
 ```
 Структурно невозможно создать два перекрывающихся бронирования. Error code `23P01` при нарушении.
 
-**Уровень 2 — Транзакция с блокировкой:**
+**Уровень 2 — Транзакция с блокировкой (в Repository, не в Use Case):**
+
+SQL-код находится в `adapters/repositories/postgres-booking.repo.ts`, реализующем `IBookingRepository`.
+Use Case вызывает `bookingRepo.create(data)` — не знает про транзакции.
+
 ```typescript
-// bookings.service.ts
-async function createBooking(data) {
-  return await db.transaction(async (trx) => {
-    // Блокировка строк мастера в целевом окне
-    await trx.raw(
+// adapters/repositories/postgres-booking.repo.ts
+// implements IBookingRepository.create()
+async create(data: CreateBookingData): Promise<Booking> {
+  const client = await this.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Пессимистическая блокировка конкурирующих записей мастера в том же окне
+    await client.query(
       `SELECT id FROM bookings
-       WHERE master_id = ? AND status IN ('CONFIRMED','PENDING')
-       AND tstzrange(start_time, end_time,'[)') && tstzrange(?,?,'[)')
+       WHERE master_id = $1 AND status IN ('CONFIRMED','PENDING')
+       AND tstzrange(start_time, end_time,'[)') && tstzrange($2,$3,'[)')
        FOR UPDATE`,
-      [data.masterId, data.startTime, data.endTime]
+      [data.masterId, data.startTime, data.endTime],
     );
-    // EXCLUDE сработает при INSERT если блокировка не успела
-    return await trx('bookings').insert(data).returning('*');
-  });
+
+    // EXCLUDE GIST сработает при INSERT если блокировка не успела (race condition)
+    const { rows } = await client.query<BookingRow>(
+      `INSERT INTO bookings (client_id, master_id, service_id, start_time, end_time,
+        status, price_snapshot, client_telegram_id, master_telegram_id)
+       VALUES ($1,$2,$3,$4,$5,'PENDING',$6,$7,$8)
+       RETURNING *`,
+      [data.clientId, data.masterId, data.serviceId,
+       data.startTime, data.endTime, data.priceSnapshot,
+       data.clientTelegramId, data.masterTelegramId],
+    );
+
+    await client.query('COMMIT');
+    return toDomain(rows[0]);   // маппинг DB row → Domain Entity
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;  // error code 23P01 всплывает в Controller → 409
+  } finally {
+    client.release();
+  }
 }
 ```
 
@@ -1337,54 +1454,57 @@ export const CreateBookingBodySchema = z.object({
 export type CreateBookingBody = z.infer<typeof CreateBookingBodySchema>;
 ```
 
-### Шаблон: Controller (`adapters/http/bookings/bookings.controller.ts`)
+### Шаблон: Routes + Controller (`adapters/http/bookings/bookings.routes.ts`)
 
-```typescript
-// adapters/http/bookings/bookings.controller.ts
-import type { FastifyRequest, FastifyReply } from 'fastify';
-import { CreateBookingUseCase }         from '@/use-cases/create-booking/create-booking.use-case';
-import { PostgresBookingRepository }    from '@/adapters/repositories/postgres-booking.repo';
-import { PostgresMasterRepository }     from '@/adapters/repositories/postgres-master.repo';
-import { pool }                         from '@/infrastructure/postgres/pool';
-import { eventBus }                     from '@/infrastructure/event-bus';
-import { ConflictError }                from '@/shared/errors/app-errors';
-import type { CreateBookingBody }        from './create-booking.schema';
-
-export async function createBookingController(
-  req: FastifyRequest<{ Body: CreateBookingBody }>,
-  reply: FastifyReply,
-) {
-  const useCase = new CreateBookingUseCase(
-    new PostgresBookingRepository(pool),
-    new PostgresMasterRepository(pool),
-    eventBus,
-  );
-
-  try {
-    const result = await useCase.execute({ ...req.body, clientId: req.user.userId });
-    if (!result.ok) return reply.status(400).send({ error: result.reason });
-    return reply.status(201).send(result.booking);
-  } catch (err: any) {
-    if (err.code === '23P01') throw new ConflictError('Slot is no longer available');
-    throw err;
-  }
-}
-```
-
-### Шаблон: Routes (`adapters/http/bookings/bookings.routes.ts`)
+Controller НЕ импортирует из `@/infrastructure/`. Use Cases получает через параметр из Composition Root (см. §6.5).
 
 ```typescript
 // adapters/http/bookings/bookings.routes.ts
-import type { FastifyInstance }    from 'fastify';
-import { CreateBookingBodySchema } from './create-booking.schema';
-import { createBookingController } from './bookings.controller';
+// Импорты ТОЛЬКО из use-cases (интерфейс) и shared (ошибки, схемы)
+import type { FastifyInstance }          from 'fastify';
+import type { CreateBookingUseCase }     from '@/use-cases/create-booking/create-booking.use-case';
+import type { CancelBookingUseCase }     from '@/use-cases/cancel-booking/cancel-booking.use-case';
+import { ConflictError }                 from '@/shared/errors/app-errors';
+import { CreateBookingBodySchema }       from './create-booking.schema';
 
-export async function bookingsRoutes(app: FastifyInstance) {
-  app.post('/api/v1/bookings', {
-    preHandler: [app.authenticate],
-    schema: { body: CreateBookingBodySchema },
-    handler: createBookingController,
-  });
+// Фабрика: получаем Use Cases через параметры — НЕТ импортов из @/infrastructure/
+export function makeBookingsRoutes(deps: {
+  createBookingUseCase: CreateBookingUseCase;
+  cancelBookingUseCase: CancelBookingUseCase;
+}) {
+  return async function bookingsPlugin(app: FastifyInstance) {
+
+    app.post('/api/v1/bookings', {
+      preHandler: [app.authenticate],
+      schema: { body: CreateBookingBodySchema },
+      async handler(req, reply) {
+        try {
+          const result = await deps.createBookingUseCase.execute({
+            ...req.body,
+            clientId: req.user.userId,
+          });
+          if (!result.ok) return reply.status(400).send({ error: result.reason });
+          return reply.status(201).send(result.booking);
+        } catch (err: any) {
+          if (err.code === '23P01') throw new ConflictError('Slot is no longer available');
+          throw err;
+        }
+      },
+    });
+
+    app.post('/api/v1/bookings/:id/cancel', {
+      preHandler: [app.authenticate],
+      async handler(req, reply) {
+        const result = await deps.cancelBookingUseCase.execute({
+          bookingId: (req.params as any).id,
+          cancelledBy: req.user.role,
+          userId: req.user.userId,
+        });
+        if (!result.ok) return reply.status(400).send({ error: result.reason });
+        return reply.status(200).send(result.booking);
+      },
+    });
+  };
 }
 ```
 

@@ -167,6 +167,8 @@
   display: flex;
   align-items: flex-end;
   padding: 6px;
+  background-size: cover;
+  background-position: center;
 }
 .gallery-item-label {
   font-size: 10px; font-weight: 600;

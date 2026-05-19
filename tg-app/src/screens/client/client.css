@@ -176,6 +176,8 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.4);
   cursor: pointer;
   transition: transform 0.15s;
+  background-size: cover;
+  background-position: center;
 }
 .gallery-item:active { transform: scale(0.95); }
 

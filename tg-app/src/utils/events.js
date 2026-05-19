@@ -239,7 +239,28 @@ function bindMasterProfileEditEvents() {
   });
 
   document.getElementById('btn-add-gallery')?.addEventListener('click', () => {
-    showToast('Загрузка фото — в разработке');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('Файл слишком большой (макс. 10 МБ)');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        getMasterById('m1').gallery.push({
+          bg: `url(${ev.target.result})`,
+          label: '',
+        });
+        navigate('master-profile-edit', {}, 'none');
+        showToast('Фото добавлено ✓');
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
   });
 
   document.getElementById('menu-master-schedule')?.addEventListener('click', () => {

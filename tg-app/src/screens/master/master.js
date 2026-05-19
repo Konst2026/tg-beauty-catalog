@@ -129,7 +129,8 @@ function renderMasterProfileEdit() {
   const m = getMasterById('m1');
 
   const galleryItems = m.gallery.map((g, idx) => `
-    <div class="gallery-manage-item" style="background:${g.bg}">
+    <div class="gallery-manage-item" style="background:${g.bg}" data-replace-idx="${idx}">
+      <div class="gallery-edit-badge">📷</div>
       <span class="gallery-item-label">${g.label}</span>
       <button class="gallery-del-btn" data-gallery-idx="${idx}">✕</button>
     </div>`).join('');

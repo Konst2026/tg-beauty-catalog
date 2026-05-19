@@ -211,10 +211,11 @@ function bindMasterServicesEvents() {
 
 function bindMasterProfileEditEvents() {
   document.getElementById('btn-save-profile')?.addEventListener('click', () => {
-    const name     = document.getElementById('inp-master-name')?.value.trim();
+    const name      = document.getElementById('inp-master-name')?.value.trim();
     const specialty = document.getElementById('inp-master-specialty')?.value.trim();
-    const city     = document.getElementById('inp-master-city')?.value.trim();
-    const bio      = document.getElementById('inp-master-bio')?.value.trim();
+    const city      = document.getElementById('inp-master-city')?.value.trim();
+    const bio       = document.getElementById('inp-master-bio')?.value.trim();
+    const promo     = document.getElementById('inp-master-promo')?.value.trim();
 
     if (!name) { showToast('Введите имя'); return; }
 
@@ -223,6 +224,7 @@ function bindMasterProfileEditEvents() {
     m.specialty = specialty;
     m.city      = city;
     m.bio       = bio;
+    m.promo     = promo;
     const parts = name.split(' ');
     m.initials  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
 
@@ -263,13 +265,6 @@ function bindMasterProfileEditEvents() {
     input.click();
   });
 
-  document.getElementById('menu-master-schedule')?.addEventListener('click', () => {
-    navigate('master-schedule', {}, 'forward');
-  });
-
-  document.getElementById('menu-master-services')?.addEventListener('click', () => {
-    navigate('master-services', {}, 'forward');
-  });
 }
 
 function bindMasterServiceEditEvents() {

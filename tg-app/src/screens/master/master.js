@@ -171,16 +171,11 @@ function renderMasterProfileEdit() {
       </button>
     </div>
     <div class="section-title" style="padding:0 16px;margin-top:4px">Дополнительно</div>
-    <div class="profile-menu">
-      <div class="profile-menu-item" id="menu-master-schedule">
-        <span class="profile-menu-icon">🗓️</span>
-        <span class="profile-menu-label">Рабочие часы</span>
-        <span class="profile-menu-arrow">›</span>
-      </div>
-      <div class="profile-menu-item" id="menu-master-services">
-        <span class="profile-menu-icon">✂️</span>
-        <span class="profile-menu-label">Мои услуги</span>
-        <span class="profile-menu-arrow">›</span>
+    <div class="form-section">
+      <div class="form-group">
+        <label class="form-label">Акции и объявления</label>
+        <textarea class="form-textarea" id="inp-master-promo"
+          placeholder="Например: скидка 20% на маникюр до конца мая 🎉">${m.promo || ''}</textarea>
       </div>
     </div>
     <div class="screen-footer">

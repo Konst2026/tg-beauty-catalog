@@ -3,6 +3,7 @@
 // Диспетчер: вызывается сразу после рендера нового экрана
 function bindScreenEvents(screen) {
   switch (screen) {
+    case 'role-select':       return bindRoleSelectEvents();
     case 'catalog':           return bindCatalogEvents();
     case 'master-profile':    return bindMasterProfileEvents();
     case 'date-time':         return bindDateTimeEvents();
@@ -14,6 +15,24 @@ function bindScreenEvents(screen) {
     case 'master-services':   return bindMasterServicesEvents();
     case 'master-schedule':   return bindMasterScheduleEvents();
   }
+}
+
+function bindRoleSelectEvents() {
+  document.getElementById('btn-role-client')?.addEventListener('click', () => {
+    tg.HapticFeedback.impactOccurred('light');
+    state.isMasterMode = false;
+    state.activeTab = 'catalog';
+    state.screenHistory = [];
+    navigate('catalog', {}, 'forward');
+  });
+
+  document.getElementById('btn-role-master')?.addEventListener('click', () => {
+    tg.HapticFeedback.impactOccurred('light');
+    state.isMasterMode = true;
+    state.activeTab = 'master-home';
+    state.screenHistory = [];
+    navigate('master-dashboard', {}, 'forward');
+  });
 }
 
 function bindCatalogEvents() {

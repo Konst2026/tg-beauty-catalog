@@ -45,7 +45,7 @@ if (!tg) {
 }
 
 // ─── Роутер ───────────────────────────────────────────────────
-const NO_TAB = new Set(['splash', 'date-time', 'booking-summary', 'booking-success']);
+const NO_TAB = new Set(['splash', 'role-select', 'date-time', 'booking-summary', 'booking-success']);
 
 function navigate(screen, data = {}, direction = 'forward') {
   Object.assign(state, data);
@@ -122,6 +122,7 @@ function switchTab(tabId) {
 function renderScreen(screen) {
   switch (screen) {
     case 'splash':            return renderSplash();
+    case 'role-select':       return renderRoleSelect();
     case 'catalog':           return renderCatalog();
     case 'master-profile':    return renderMasterProfile();
     case 'date-time':         return renderDateTime();
@@ -227,8 +228,7 @@ function init() {
 
   setTimeout(() => {
     state.screenHistory = [];
-    state.activeTab = 'catalog';
-    navigate('catalog', {}, 'none');
+    navigate('role-select', {}, 'none');
   }, 1500);
 }
 

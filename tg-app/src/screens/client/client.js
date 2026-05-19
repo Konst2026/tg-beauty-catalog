@@ -1,5 +1,33 @@
 'use strict';
 
+// Выбор роли — первый экран после сплэша
+function renderRoleSelect() {
+  return `
+    <div class="role-select-screen">
+      <div class="role-select-logo">✨</div>
+      <div class="role-select-title">BeautyBook</div>
+      <div class="role-select-sub">Кто вы сегодня?</div>
+      <div class="role-cards">
+        <button class="role-card role-card-client" id="btn-role-client">
+          <span class="role-card-icon">🙋</span>
+          <span class="role-card-body">
+            <span class="role-card-title">Я Клиент</span>
+            <span class="role-card-desc">Найти мастера и записаться на услугу</span>
+          </span>
+          <span class="role-card-arrow">›</span>
+        </button>
+        <button class="role-card role-card-master" id="btn-role-master">
+          <span class="role-card-icon">✂️</span>
+          <span class="role-card-body">
+            <span class="role-card-title">Я Мастер</span>
+            <span class="role-card-desc">Вести кабинет и принимать записи</span>
+          </span>
+          <span class="role-card-arrow">›</span>
+        </button>
+      </div>
+    </div>`;
+}
+
 // Экран загрузки
 function renderSplash() {
   return `

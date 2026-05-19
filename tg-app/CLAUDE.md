@@ -1,65 +1,73 @@
 # tg-app — BeautyBook Telegram Mini App
 
-Vanilla HTML/CSS/JS — без фреймворков.  
-Точка входа: `index.html`. Открывается как Telegram Mini App.
+Vanilla HTML/CSS/JS SPA без фреймворков.  
+Точка входа: `index.html`.
 
-## Файлы
+## Структура
 
-| Файл | Назначение |
-|---|---|
-| `index.html` | HTML-каркас: подключает SDK, стили, скрипты в правильном порядке |
-| `styles.css` | Все стили: переменные, темы, компоненты, анимации переходов |
-| `data.js` | Данные: CATEGORIES, MASTERS, MY_BOOKINGS, MASTER_DASHBOARD + хелперы |
-| `screens-client.js` | Рендер клиентских экранов: каталог, мастер, бронирование, профиль |
-| `screens-master.js` | Рендер кабинета мастера: дашборд, записи, услуги, расписание |
-| `events.js` | Привязка событий к DOM после каждого рендера экрана |
-| `app.js` | Состояние `state`, роутер, TG SDK инициализация, таб-бар, тосты |
+```
+tg-app/
+├── src/
+│   ├── api/
+│   │   └── data.js              # Данные, mock API, форматирование
+│   ├── screens/
+│   │   ├── client/
+│   │   │   ├── client.js        # Рендер клиентских экранов
+│   │   │   └── client.css       # Стили клиентских экранов
+│   │   └── master/
+│   │       ├── master.js        # Рендер кабинета мастера
+│   │       └── master.css       # Стили кабинета мастера
+│   ├── utils/
+│   │   └── events.js            # Привязка событий к DOM
+│   └── app.js                   # Состояние, роутер, TG SDK, init
+├── styles.css                   # Глобальные стили (переменные, layout, кнопки)
+├── index.html                   # Точка входа
+└── CLAUDE.md
+```
+
+## Слои
+
+| Слой | Файл | Ответственность |
+|---|---|---|
+| API / Данные | `src/api/data.js` | Константы, mock-данные, геттеры, форматирование |
+| Представление | `src/screens/client/client.js` | HTML-строки клиентских экранов |
+| Представление | `src/screens/master/master.js` | HTML-строки кабинета мастера |
+| Обработка событий | `src/utils/events.js` | DOM-события после каждого рендера |
+| Ядро | `src/app.js` | Состояние `state`, роутер, TG SDK, init |
 
 ## Навигация
 
 ```
-Каталог → [клик карточки] → Профиль мастера → [Записаться] → Дата/Время
-               ↑                                                    ↓
-           goBack()          [goBack]          Подтверждение → Успех
-                                                               ↓
-                                                     (Мои записи / Каталог)
+Каталог → Профиль мастера → Дата/Время → Подтверждение → Успех
+               ↑ goBack()                   ↑ goBack()
 ```
 
-Вкладки клиента: Каталог / Записи / Профиль  
-Вкладки мастера: Главная / Записи / Услуги / Профиль
+Таб-бар: **клиент** — Каталог / Записи / Профиль  
+Таб-бар: **мастер** — Главная / Записи / Услуги / Профиль
 
-Экраны **без** таб-бара: `splash`, `date-time`, `booking-summary`, `booking-success`
+Экраны без таб-бара: `splash`, `date-time`, `booking-summary`, `booking-success`
 
-## Как добавить экран
+## Добавить новый экран
 
-1. `renderXxx()` → в `screens-client.js` или `screens-master.js`
-2. В `app.js` добавить `case 'xxx': return renderXxx();` в `renderScreen()`
-3. В `events.js` добавить `function bindXxxEvents()` и вызов в `bindScreenEvents()`
-4. Если нужна вкладка — добавить объект в `CLIENT_TABS` или `MASTER_TABS` в `app.js`
+1. `renderXxx()` → в `src/screens/client/client.js` или `src/screens/master/master.js`
+2. Стили → в co-located `client.css` или `master.css`
+3. `case 'xxx': return renderXxx();` → в `renderScreen()` в `src/app.js`
+4. `bindXxxEvents()` → в `src/utils/events.js`, добавить вызов в `bindScreenEvents()`
+5. Если нужна вкладка → добавить в `CLIENT_TABS` или `MASTER_TABS` в `src/app.js`
 
-## Как изменить данные
+## Изменить данные
 
-- Мастера: `data.js` → `MASTERS[]`
-- Категории: `data.js` → `CATEGORIES[]`
-- Демо-записи клиента: `data.js` → `MY_BOOKINGS[]`
-- Статистика мастера: `data.js` → `MASTER_DASHBOARD`
+- Мастера: `src/api/data.js` → `MASTERS[]`
+- Категории: `src/api/data.js` → `CATEGORIES[]`
+- Демо-записи: `src/api/data.js` → `MY_BOOKINGS[]`
+- Расписание/статистика: `src/api/data.js` → `MASTER_DASHBOARD`
+
+## Переход на реальный backend
+
+Заменить функции `getMastersByCategory`, `getMasterById`, `getServiceById` в `src/api/data.js`  
+на `fetch`-вызовы к API. Роутер (`src/app.js`) и события (`src/utils/events.js`) остаются без изменений.
 
 ## TG SDK
 
-Глобальная переменная `tg` в `app.js`.  
-При отсутствии SDK (браузер) — мок с демо-пользователем `Алина Петрова`.
-
-## Стили
-
-CSS-переменные (`:root` / `[data-theme="dark"]`):
-- `--accent` — основной синий (#2AABEE)
-- `--bg`, `--bg2`, `--card` — фоны
-- `--text`, `--hint` — цвета текста
-
-Тёмная тема устанавливается автоматически из `tg.colorScheme` при инициализации.
-
-## Переход к реальному бэкенду
-
-В `data.js` — заменить хелперы `getMastersByCategory`, `getMasterById` и т.д.  
-на `fetch`-вызовы к API. Состояние бронирования останется в `state` (app.js),  
-хелперы форматирования (`formatDate`, `formatPrice`) переиспользуются без изменений.
+Глобальная переменная `tg` в `src/app.js`.  
+При запуске в браузере — автоматически подключается мок с тест-пользователем.

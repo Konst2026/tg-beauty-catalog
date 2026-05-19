@@ -9,29 +9,28 @@
   <!-- Telegram Web App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- Стили приложения -->
+  <!-- Глобальные стили -->
   <link rel="stylesheet" href="styles.css" />
+  <!-- Стили клиентских экранов -->
+  <link rel="stylesheet" href="src/screens/client/client.css" />
+  <!-- Стили кабинета мастера -->
+  <link rel="stylesheet" href="src/screens/master/master.css" />
 </head>
 <body>
 
-  <!-- Корневой контейнер -->
   <div id="app">
-    <!-- Сюда рендерятся все экраны (один активный .screen) -->
     <div id="screen-container"></div>
-
-    <!-- Нижняя навигационная панель (скрыта на экранах бронирования) -->
     <nav id="tab-bar" class="hidden"></nav>
   </div>
 
-  <!-- Тост-уведомления -->
   <div id="toast" aria-live="polite"></div>
 
-  <!-- Скрипты в правильном порядке зависимостей -->
-  <script src="data.js"></script>
-  <script src="screens-client.js"></script>
-  <script src="screens-master.js"></script>
-  <script src="events.js"></script>
-  <script src="app.js"></script>
+  <!-- Порядок загрузки важен: каждый файл зависит от предыдущих -->
+  <script src="src/api/data.js"></script>
+  <script src="src/screens/client/client.js"></script>
+  <script src="src/screens/master/master.js"></script>
+  <script src="src/utils/events.js"></script>
+  <script src="src/app.js"></script>
 
 </body>
 </html>

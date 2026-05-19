@@ -1,0 +1,126 @@
+/* ============================================================
+   master.css — стили кабинета мастера BeautyBook
+   Дашборд, записи, управление услугами, расписание
+   ============================================================ */
+
+/* ─── Баннер-шапка ───────────────────────────────────────── */
+.master-banner {
+  background: linear-gradient(135deg, var(--accent), #1565c0);
+  color: #fff;
+  padding: 20px 16px;
+}
+.master-banner-name { font-size: 22px; font-weight: 700; }
+.master-banner-role { font-size: 14px; opacity: 0.85; margin-top: 2px; }
+
+/* ─── Статистика ─────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+}
+.stat-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.stat-card-num   { font-size: 28px; font-weight: 700; color: var(--accent); }
+.stat-card-label { font-size: 13px; color: var(--hint); margin-top: 3px; }
+
+/* ─── Сегодняшние записи ─────────────────────────────────── */
+.today-list { padding: 0 16px; }
+
+.today-item {
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.today-time { font-size: 15px; font-weight: 700; color: var(--accent); min-width: 44px; }
+.today-name { font-size: 15px; font-weight: 500; flex: 1; }
+.today-svc  { font-size: 13px; color: var(--hint); margin-top: 2px; }
+
+/* ─── Управление услугами ────────────────────────────────── */
+.service-manage-item {
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  margin: 0 16px 8px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+}
+.svc-info   { flex: 1; }
+.svc-name   { font-size: 15px; font-weight: 500; }
+.svc-detail { font-size: 13px; color: var(--hint); margin-top: 2px; }
+
+/* ─── Расписание ─────────────────────────────────────────── */
+.schedule-item {
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  margin: 0 16px 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+}
+.sched-day  { font-size: 15px; font-weight: 500; width: 36px; }
+.sched-time { flex: 1; font-size: 14px; color: var(--hint); }
+.sched-off  { flex: 1; font-size: 14px; color: var(--danger); }
+
+.schedule-hours {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.time-input {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 14px;
+  background: var(--bg2);
+  color: var(--text);
+  width: 82px;
+  outline: none;
+}
+.time-input:focus { border-color: var(--accent); }
+
+/* ─── Переключатель (toggle) ─────────────────────────────── */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px; height: 26px;
+  flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 99px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px; height: 18px;
+  left: 3px; top: 50%;
+  transform: translateY(-50%);
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  transition: 0.2s;
+}
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle input:checked + .toggle-slider::before { transform: translateY(-50%) translateX(18px); }

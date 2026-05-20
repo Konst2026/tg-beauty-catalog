@@ -41,6 +41,42 @@
 .onboarding-feature-title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
 .onboarding-feature-desc  { font-size: 13px; color: var(--hint); line-height: 1.4; }
 
+/* ─── Промо-карточка на онбординге ──────────────────────── */
+.onboarding-promo-card {
+  margin: 12px 16px 4px;
+  padding: 16px;
+  background: linear-gradient(135deg, #FFF0F5 0%, #FFF8E7 100%);
+  border: 1.5px solid #F0C0D0;
+  border-radius: 16px;
+  text-align: center;
+}
+[data-theme=dark] .onboarding-promo-card {
+  background: linear-gradient(135deg, #3a1a22 0%, #2e2510 100%);
+  border-color: #7a3a4a;
+}
+.onboarding-promo-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.onboarding-promo-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.onboarding-promo-code {
+  display: inline-block;
+  padding: 6px 18px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
 /* ─── Кнопка «Поделиться» ────────────────────────────────── */
 .share-btn {
   display: flex;

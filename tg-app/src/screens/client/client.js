@@ -34,8 +34,13 @@ function renderOnboarding() {
           </div>
         </div>
       </div>
+      <div class="onboarding-promo-card">
+        <div class="onboarding-promo-badge">🎁 Подарок новым клиентам</div>
+        <div class="onboarding-promo-text">Подпишитесь на нашего бота и получите промокод на <strong>скидку 15%</strong> при первой записи к мастеру</div>
+        <div class="onboarding-promo-code">BEAUTY15</div>
+      </div>
       <div class="screen-footer">
-        <button class="btn btn-primary" id="btn-onboarding-start">Начать</button>
+        <button class="btn btn-primary" id="btn-onboarding-start">Начать и получить скидку</button>
       </div>
     </div>`;
 }

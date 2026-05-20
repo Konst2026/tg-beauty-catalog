@@ -234,7 +234,7 @@ function showOfferIfNeeded() {
 
   document.getElementById('btn-offer-get')?.addEventListener('click', () => {
     closeOffer();
-    tg.openLink('https://t.me/BeautyAppBook_bot/app?start=from_app');
+    tg.openLink('https://t.me/BeautyAppBook_bot?start=from_app');
   });
   document.getElementById('btn-offer-skip')?.addEventListener('click', closeOffer);
 }

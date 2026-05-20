@@ -256,6 +256,15 @@
 .profile-menu-label { font-size: 15px; flex: 1; }
 .profile-menu-arrow { color: var(--hint); font-size: 18px; }
 
+/* ─── Строка формы с тогглом ─────────────────────────────── */
+.form-row-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.form-hint { font-size: 12px; color: var(--hint); margin-top: 1px; }
+
 /* ─── Переключатель (toggle) ─────────────────────────────── */
 .toggle {
   position: relative;

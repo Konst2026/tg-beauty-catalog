@@ -243,20 +243,24 @@ function compressImage(dataUrl, maxPx, quality, cb) {
 
 function bindMasterProfileEditEvents() {
   document.getElementById('btn-save-profile')?.addEventListener('click', () => {
-    const name      = document.getElementById('inp-master-name')?.value.trim();
-    const specialty = document.getElementById('inp-master-specialty')?.value.trim();
-    const city      = document.getElementById('inp-master-city')?.value.trim();
-    const bio       = document.getElementById('inp-master-bio')?.value.trim();
-    const promo     = document.getElementById('inp-master-promo')?.value.trim();
+    const name           = document.getElementById('inp-master-name')?.value.trim();
+    const specialty      = document.getElementById('inp-master-specialty')?.value.trim();
+    const categoryId     = document.getElementById('inp-master-category')?.value;
+    const city           = document.getElementById('inp-master-city')?.value.trim();
+    const bio            = document.getElementById('inp-master-bio')?.value.trim();
+    const availableToday = document.getElementById('inp-master-available')?.checked ?? false;
+    const promo          = document.getElementById('inp-master-promo')?.value.trim();
 
     if (!name) { showToast('Введите имя'); return; }
 
     const m = getMasterById('m1');
-    m.name      = name;
-    m.specialty = specialty;
-    m.city      = city;
-    m.bio       = bio;
-    m.promo     = promo;
+    m.name           = name;
+    m.specialty      = specialty;
+    m.categoryId     = categoryId;
+    m.city           = city;
+    m.bio            = bio;
+    m.availableToday = availableToday;
+    m.promo          = promo;
     const parts = name.split(' ');
     m.initials  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
 

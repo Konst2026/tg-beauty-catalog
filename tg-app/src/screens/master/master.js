@@ -156,6 +156,15 @@ function renderMasterProfileEdit() {
           value="${m.specialty}" placeholder="Маникюр · педикюр">
       </div>
       <div class="form-group">
+        <label class="form-label">Категория в каталоге</label>
+        <select class="form-input" id="inp-master-category">
+          <option value="nails"  ${m.categoryId === 'nails'  ? 'selected' : ''}>💅 Маникюр</option>
+          <option value="lashes" ${m.categoryId === 'lashes' ? 'selected' : ''}>👁️ Ресницы</option>
+          <option value="brows"  ${m.categoryId === 'brows'  ? 'selected' : ''}>🤨 Брови</option>
+          <option value="hair"   ${m.categoryId === 'hair'   ? 'selected' : ''}>💇 Волосы</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label class="form-label">Город и район</label>
         <input class="form-input" id="inp-master-city" type="text"
           value="${m.city}" placeholder="Москва, Таганская">
@@ -176,9 +185,19 @@ function renderMasterProfileEdit() {
     </div>
     <div class="section-title" style="padding:0 16px;margin-top:4px">Дополнительно</div>
     <div class="form-section">
+      <div class="form-group form-row-toggle">
+        <div>
+          <div class="form-label" style="margin-bottom:2px">Принимаю сегодня</div>
+          <div class="form-hint">Отображается в каталоге как «Сегодня свободно»</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="inp-master-available" ${m.availableToday ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
       <div class="form-group">
-        <label class="form-label">Акции и объявления</label>
-        <textarea class="form-textarea" id="inp-master-promo"
+        <label class="form-label">Акции и объявления (не более 44 знаков)</label>
+        <textarea class="form-textarea" id="inp-master-promo" maxlength="44"
           placeholder="Например: скидка 20% на маникюр до конца мая 🎉">${m.promo || ''}</textarea>
       </div>
     </div>

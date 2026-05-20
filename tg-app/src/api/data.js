@@ -291,6 +291,7 @@ function saveMasterToStorage() {
     // Фото слишком большие — сохраняем без base64 изображений
     try {
       const safe = Object.assign({}, m, {
+        avatar:  m.avatar.startsWith('url(data:') ? 'linear-gradient(135deg, #E8B4B8 0%, #C4956A 100%)' : m.avatar,
         gallery: m.gallery.filter(g => !g.bg.startsWith('url(data:')),
       });
       localStorage.setItem('bb_master_m1', JSON.stringify(safe));

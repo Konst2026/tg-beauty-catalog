@@ -209,6 +209,19 @@ function bindMasterServicesEvents() {
   );
 }
 
+function compressImage(dataUrl, maxPx, quality, cb) {
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.round(img.width  * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    cb(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+
 function bindMasterProfileEditEvents() {
   document.getElementById('btn-save-profile')?.addEventListener('click', () => {
     const name      = document.getElementById('inp-master-name')?.value.trim();
@@ -243,10 +256,12 @@ function bindMasterProfileEditEvents() {
       if (file.size > 10 * 1024 * 1024) { showToast('Файл слишком большой (макс. 10 МБ)'); return; }
       const reader = new FileReader();
       reader.onload = (ev) => {
-        getMasterById('m1').avatar = `url(${ev.target.result})`;
-        saveMasterToStorage();
-        navigate('master-profile-edit', {}, 'none');
-        showToast('Фото профиля обновлено ✓');
+        compressImage(ev.target.result, 800, 0.8, (compressed) => {
+          getMasterById('m1').avatar = `url(${compressed})`;
+          saveMasterToStorage();
+          navigate('master-profile-edit', {}, 'none');
+          showToast('Фото профиля обновлено ✓');
+        });
       };
       reader.readAsDataURL(file);
     };
@@ -275,10 +290,12 @@ function bindMasterProfileEditEvents() {
         if (file.size > 10 * 1024 * 1024) { showToast('Файл слишком большой (макс. 10 МБ)'); return; }
         const reader = new FileReader();
         reader.onload = (ev) => {
-          getMasterById('m1').gallery[idx] = { bg: `url(${ev.target.result})`, label: '' };
-          saveMasterToStorage();
-          navigate('master-profile-edit', {}, 'none');
-          showToast('Фото заменено ✓');
+          compressImage(ev.target.result, 800, 0.8, (compressed) => {
+            getMasterById('m1').gallery[idx] = { bg: `url(${compressed})`, label: '' };
+            saveMasterToStorage();
+            navigate('master-profile-edit', {}, 'none');
+            showToast('Фото заменено ✓');
+          });
         };
         reader.readAsDataURL(file);
       };
@@ -299,13 +316,12 @@ function bindMasterProfileEditEvents() {
       }
       const reader = new FileReader();
       reader.onload = (ev) => {
-        getMasterById('m1').gallery.push({
-          bg: `url(${ev.target.result})`,
-          label: '',
+        compressImage(ev.target.result, 800, 0.8, (compressed) => {
+          getMasterById('m1').gallery.push({ bg: `url(${compressed})`, label: '' });
+          saveMasterToStorage();
+          navigate('master-profile-edit', {}, 'none');
+          showToast('Фото добавлено ✓');
         });
-        saveMasterToStorage();
-        navigate('master-profile-edit', {}, 'none');
-        showToast('Фото добавлено ✓');
       };
       reader.readAsDataURL(file);
     };

@@ -55,6 +55,12 @@ module.exports = async function handler(req, res) {
         `Нажмите кнопку ниже, чтобы начать 👇`,
         OPEN_BTN
       );
+      await send(chatId,
+        `🎁 <b>Подарок для новых клиентов!</b>\n\n` +
+        `Скидка <b>15%</b> на первую запись к любому мастеру.\n\n` +
+        `Промокод: <code>BEAUTY15</code>\n\n` +
+        `Введите его при записи и сэкономьте 💸`
+      );
     } else if (text.startsWith('/help')) {
       await send(chatId,
         `ℹ️ <b>Как пользоваться BeautyBook</b>\n\n` +

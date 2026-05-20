@@ -3,7 +3,7 @@
 // Главная кабинета мастера
 function renderMasterDashboard() {
   const d = MASTER_DASHBOARD;
-  const m = getMasterById('m1');
+  const m = getMasterById(state.myMasterId);
 
   const todayHtml = d.todayBookings.length
     ? d.todayBookings.map(b => `
@@ -64,7 +64,7 @@ function renderMasterOrders() {
 
 // Услуги мастера
 function renderMasterServices() {
-  const m = getMasterById('m1');
+  const m = getMasterById(state.myMasterId);
   const items = m.services.map(s => `
     <div class="service-manage-item">
       <div class="svc-info">
@@ -126,7 +126,7 @@ function renderMasterServiceEdit() {
 
 // Редактирование профиля мастера
 function renderMasterProfileEdit() {
-  const m = getMasterById('m1');
+  const m = getMasterById(state.myMasterId);
 
   const galleryItems = m.gallery.map((g, idx) => `
     <div class="gallery-manage-item" style="background-image:${g.bg}" data-replace-idx="${idx}">

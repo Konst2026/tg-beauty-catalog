@@ -6,6 +6,7 @@ const state = {
   screenHistory: [],
   activeTab: 'catalog',
   isMasterMode: false,
+  myMasterId: 'm1',
   selectedMasterId: null,
   selectedServiceId: null,
   selectedDate: null,
@@ -246,8 +247,19 @@ function init() {
   tg.expand();
 
   state.tgUser = tg.initDataUnsafe?.user || { first_name: 'Пользователь' };
+
+  // Уникальный ID мастера = m_ + Telegram user ID
+  if (state.tgUser.id) {
+    state.myMasterId = 'm_' + state.tgUser.id;
+  }
+
   applyTheme();
   loadMasterFromStorage();
+
+  // Загружаем всех мастеров с сервера (async), обновляем каталог когда придут
+  loadMastersFromServer().then(() => {
+    if (state.currentScreen === 'catalog') navigate('catalog', {}, 'none');
+  });
 
   document.getElementById('screen-container').addEventListener('click', e => {
     if (e.target.closest('[data-action="back"]')) goBack();
@@ -259,16 +271,35 @@ function init() {
     state.screenHistory = [];
     const params = new URLSearchParams(window.location.search);
     if (params.get('role') === 'master') {
-      const m = getMasterById('m1');
-      if (m.name === 'Мария Иванова' || !m.name) {
+      let m = getMasterById(state.myMasterId);
+      if (!m) {
+        // Новый мастер — создаём запись в MASTERS
         const u = state.tgUser;
         const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ');
-        if (fullName) {
-          m.name = fullName;
-          const parts = fullName.split(' ');
-          m.initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
-        }
+        const parts = (fullName || 'Мастер').split(' ');
+        m = {
+          id: state.myMasterId,
+          name: fullName || 'Мастер',
+          initials: (parts[0]?.[0] || '') + (parts[1]?.[0] || ''),
+          avatar: 'linear-gradient(135deg, #E8B4B8 0%, #C4956A 100%)',
+          specialty: '',
+          categoryId: 'nails',
+          rating: 5.0,
+          reviewCount: 0,
+          city: '',
+          priceFrom: 0,
+          availableToday: false,
+          bio: '',
+          gallery: [],
+          services: [],
+          promo: '',
+        };
+        MASTERS.push(m);
       }
+      // Загружаем сохранённый профиль из localStorage если есть
+      const savedRaw = localStorage.getItem('bb_master_' + state.myMasterId);
+      if (savedRaw) try { Object.assign(m, JSON.parse(savedRaw)); } catch (e) {}
+
       state.isMasterMode = true;
       state.activeTab = 'master-profile';
       navigate('master-profile-edit', {}, 'none');

@@ -253,7 +253,7 @@ function bindMasterProfileEditEvents() {
 
     if (!name) { showToast('Введите имя'); return; }
 
-    const m = getMasterById('m1');
+    const m = getMasterById(state.myMasterId);
     m.name           = name;
     m.specialty      = specialty;
     m.categoryId     = categoryId;
@@ -264,7 +264,7 @@ function bindMasterProfileEditEvents() {
     const parts = name.split(' ');
     m.initials  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
 
-    saveMasterToStorage();
+    saveMasterToStorage(state.myMasterId);
     tg.HapticFeedback.notificationOccurred('success');
     showToast('Изменения сохранены');
   });
@@ -280,8 +280,8 @@ function bindMasterProfileEditEvents() {
       const reader = new FileReader();
       reader.onload = (ev) => {
         compressImage(ev.target.result, 800, 0.8, (compressed) => {
-          getMasterById('m1').avatar = `url(${compressed})`;
-          saveMasterToStorage();
+          getMasterById(state.myMasterId).avatar = `url(${compressed})`;
+          saveMasterToStorage(state.myMasterId);
           navigate('master-profile-edit', {}, 'none');
           showToast('Фото профиля обновлено ✓');
         });
@@ -295,8 +295,8 @@ function bindMasterProfileEditEvents() {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.galleryIdx, 10);
-      getMasterById('m1').gallery.splice(idx, 1);
-      saveMasterToStorage();
+      getMasterById(state.myMasterId).gallery.splice(idx, 1);
+      saveMasterToStorage(state.myMasterId);
       navigate('master-profile-edit', {}, 'none');
     });
   });
@@ -314,8 +314,8 @@ function bindMasterProfileEditEvents() {
         const reader = new FileReader();
         reader.onload = (ev) => {
           compressImage(ev.target.result, 800, 0.8, (compressed) => {
-            getMasterById('m1').gallery[idx] = { bg: `url(${compressed})`, label: '' };
-            saveMasterToStorage();
+            getMasterById(state.myMasterId).gallery[idx] = { bg: `url(${compressed})`, label: '' };
+            saveMasterToStorage(state.myMasterId);
             navigate('master-profile-edit', {}, 'none');
             showToast('Фото заменено ✓');
           });
@@ -340,8 +340,8 @@ function bindMasterProfileEditEvents() {
       const reader = new FileReader();
       reader.onload = (ev) => {
         compressImage(ev.target.result, 800, 0.8, (compressed) => {
-          getMasterById('m1').gallery.push({ bg: `url(${compressed})`, label: '' });
-          saveMasterToStorage();
+          getMasterById(state.myMasterId).gallery.push({ bg: `url(${compressed})`, label: '' });
+          saveMasterToStorage(state.myMasterId);
           navigate('master-profile-edit', {}, 'none');
           showToast('Фото добавлено ✓');
         });
@@ -362,7 +362,7 @@ function bindMasterServiceEditEvents() {
     if (!name)         { showToast('Введите название'); return; }
     if (!price || price < 1) { showToast('Введите стоимость'); return; }
 
-    const m = getMasterById('m1');
+    const m = getMasterById(state.myMasterId);
     if (state.editingServiceId) {
       const svc = m.services.find(s => s.id === state.editingServiceId);
       if (svc) { svc.name = name; svc.duration = duration; svc.price = price; }
@@ -379,7 +379,7 @@ function bindMasterServiceEditEvents() {
   document.getElementById('btn-delete-service')?.addEventListener('click', () => {
     tg.showConfirm('Удалить услугу?', (ok) => {
       if (!ok) return;
-      const m = getMasterById('m1');
+      const m = getMasterById(state.myMasterId);
       m.services = m.services.filter(s => s.id !== state.editingServiceId);
       if (m.services.length) m.priceFrom = Math.min(...m.services.map(s => s.price));
       tg.HapticFeedback.notificationOccurred('warning');

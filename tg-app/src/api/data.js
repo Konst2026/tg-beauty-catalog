@@ -282,21 +282,22 @@ function formatPrice(price) {
 
 // ─── Персистентность профиля мастера ─────────────────────────
 
-function saveMasterToStorage() {
-  const m = getMasterById('m1');
+function saveMasterToStorage(masterId) {
+  masterId = masterId || 'm1';
+  const m = getMasterById(masterId);
   if (!m) return;
   try {
-    localStorage.setItem('bb_master_m1', JSON.stringify(m));
+    localStorage.setItem('bb_master_' + masterId, JSON.stringify(m));
   } catch (e) {
-    // Фото слишком большие — сохраняем без base64 изображений
     try {
       const safe = Object.assign({}, m, {
         avatar:  m.avatar.startsWith('url(data:') ? 'linear-gradient(135deg, #E8B4B8 0%, #C4956A 100%)' : m.avatar,
         gallery: m.gallery.filter(g => !g.bg.startsWith('url(data:')),
       });
-      localStorage.setItem('bb_master_m1', JSON.stringify(safe));
+      localStorage.setItem('bb_master_' + masterId, JSON.stringify(safe));
     } catch (e2) {}
   }
+  saveMasterToServer(masterId);
 }
 
 function loadMasterFromStorage() {
@@ -307,5 +308,47 @@ function loadMasterFromStorage() {
     const m = getMasterById('m1');
     if (!m || !saved) return;
     Object.assign(m, saved);
+  } catch (e) {}
+}
+
+// Загрузить профили мастеров с сервера и добавить в MASTERS
+async function loadMastersFromServer() {
+  try {
+    const res = await fetch('/api/masters');
+    if (!res.ok) return;
+    const serverMasters = await res.json();
+    if (!Array.isArray(serverMasters)) return;
+
+    serverMasters.forEach(sm => {
+      const idx = MASTERS.findIndex(m => m.id === sm.id);
+      if (idx >= 0) {
+        // Обновляем текстовые поля, но сохраняем локальные фото (base64)
+        const local = MASTERS[idx];
+        const localAvatar  = local.avatar;
+        const localGallery = local.gallery;
+        Object.assign(MASTERS[idx], sm);
+        if (localAvatar.startsWith('url(data:'))  MASTERS[idx].avatar  = localAvatar;
+        if (localGallery.some(g => g.bg.startsWith('url(data:'))) MASTERS[idx].gallery = localGallery;
+      } else {
+        MASTERS.push(sm);
+      }
+    });
+  } catch (e) {}
+}
+
+// Сохранить профиль мастера на сервер (без base64-фото)
+async function saveMasterToServer(masterId) {
+  try {
+    const m = getMasterById(masterId);
+    if (!m) return;
+    const payload = Object.assign({}, m, {
+      avatar:  m.avatar.startsWith('url(data:')  ? 'linear-gradient(135deg, #E8B4B8 0%, #C4956A 100%)' : m.avatar,
+      gallery: m.gallery.map(g => g.bg.startsWith('url(data:') ? { bg: 'linear-gradient(145deg,#FFB6C1,#FF69B4)', label: g.label } : g),
+    });
+    await fetch('/api/masters', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
   } catch (e) {}
 }

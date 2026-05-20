@@ -47,7 +47,7 @@ if (!tg) {
 }
 
 // ─── Роутер ───────────────────────────────────────────────────
-const NO_TAB = new Set(['splash', 'role-select', 'date-time', 'booking-summary', 'booking-success', 'master-service-edit']);
+const NO_TAB = new Set(['splash', 'onboarding', 'role-select', 'date-time', 'booking-summary', 'booking-success', 'master-service-edit']);
 
 function navigate(screen, data = {}, direction = 'forward') {
   Object.assign(state, data);
@@ -128,6 +128,7 @@ function switchTab(tabId) {
 function renderScreen(screen) {
   switch (screen) {
     case 'splash':            return renderSplash();
+    case 'onboarding':        return renderOnboarding();
     case 'role-select':       return renderRoleSelect();
     case 'catalog':           return renderCatalog();
     case 'master-profile':    return renderMasterProfile();
@@ -256,7 +257,8 @@ function init() {
 
   setTimeout(() => {
     state.screenHistory = [];
-    navigate('role-select', {}, 'none');
+    const firstScreen = localStorage.getItem('bb_onboarding_done') ? 'role-select' : 'onboarding';
+    navigate(firstScreen, {}, 'none');
     showOfferIfNeeded();
   }, 1500);
 }

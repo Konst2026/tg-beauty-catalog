@@ -3,6 +3,7 @@
 // Диспетчер: вызывается сразу после рендера нового экрана
 function bindScreenEvents(screen) {
   switch (screen) {
+    case 'onboarding':        return bindOnboardingEvents();
     case 'role-select':       return bindRoleSelectEvents();
     case 'catalog':           return bindCatalogEvents();
     case 'master-profile':    return bindMasterProfileEvents();
@@ -17,6 +18,15 @@ function bindScreenEvents(screen) {
     case 'master-profile-edit': return bindMasterProfileEditEvents();
     case 'master-service-edit': return bindMasterServiceEditEvents();
   }
+}
+
+function bindOnboardingEvents() {
+  document.getElementById('btn-onboarding-start')?.addEventListener('click', () => {
+    tg.HapticFeedback.impactOccurred('light');
+    localStorage.setItem('bb_onboarding_done', '1');
+    state.screenHistory = [];
+    navigate('role-select', {}, 'forward');
+  });
 }
 
 function bindRoleSelectEvents() {
@@ -175,6 +185,13 @@ function bindMyBookingsEvents() {
 }
 
 function bindProfileEvents() {
+  document.getElementById('btn-share')?.addEventListener('click', () => {
+    tg.HapticFeedback.impactOccurred('light');
+    const text = 'Записывайся к бьюти-мастерам в BeautyBook — удобно и быстро!';
+    const url = 'https://t.me/BeautyAppBook_bot';
+    tg.openLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
+  });
+
   document.getElementById('menu-my-bookings')?.addEventListener('click', () => {
     state.activeTab = 'bookings';
     navigate('my-bookings', {}, 'forward');

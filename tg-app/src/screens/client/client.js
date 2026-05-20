@@ -1,5 +1,45 @@
 'use strict';
 
+// Онбординг — первый запуск
+function renderOnboarding() {
+  const u = state.tgUser || {};
+  const name = u.first_name || 'друг';
+  return `
+    <div class="onboarding-screen">
+      <div class="onboarding-hero">
+        <div class="onboarding-emoji">👋</div>
+        <div class="onboarding-title">Привет, ${name}!</div>
+        <div class="onboarding-sub">BeautyBook — твой помощник для записи к мастерам красоты прямо в Telegram</div>
+      </div>
+      <div class="onboarding-features">
+        <div class="onboarding-feature">
+          <span class="onboarding-feature-icon">💅</span>
+          <div>
+            <div class="onboarding-feature-title">Каталог мастеров</div>
+            <div class="onboarding-feature-desc">Маникюр, ресницы, брови и волосы — рядом с вами</div>
+          </div>
+        </div>
+        <div class="onboarding-feature">
+          <span class="onboarding-feature-icon">📅</span>
+          <div>
+            <div class="onboarding-feature-title">Онлайн-запись</div>
+            <div class="onboarding-feature-desc">Выберите удобное время и запишитесь в пару кликов</div>
+          </div>
+        </div>
+        <div class="onboarding-feature">
+          <span class="onboarding-feature-icon">⭐</span>
+          <div>
+            <div class="onboarding-feature-title">Портфолио и отзывы</div>
+            <div class="onboarding-feature-desc">Смотрите работы и выбирайте лучшего мастера</div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-footer">
+        <button class="btn btn-primary" id="btn-onboarding-start">Начать</button>
+      </div>
+    </div>`;
+}
+
 // Выбор роли — первый экран после сплэша
 function renderRoleSelect() {
   return `
@@ -314,6 +354,11 @@ function renderProfile() {
         <span class="menu-icon">💬</span><span class="menu-label">Поддержка</span><span class="menu-arrow">›</span>
       </div>
     </div>
+    <button class="share-btn" id="btn-share">
+      <span class="share-btn-icon">🔗</span>
+      <span class="share-btn-text">Поделиться с другом</span>
+      <span class="share-btn-arrow">›</span>
+    </button>
     <div class="master-promo-card">
       <div>
         <div class="master-promo-title">Вы мастер?</div>

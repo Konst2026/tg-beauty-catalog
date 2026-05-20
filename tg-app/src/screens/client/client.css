@@ -3,6 +3,64 @@
    Каталог, профиль мастера, бронирование, Мои записи, Профиль
    ============================================================ */
 
+/* ─── Онбординг ──────────────────────────────────────────── */
+.onboarding-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding-bottom: 16px;
+}
+.onboarding-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px 24px;
+}
+.onboarding-emoji { font-size: 56px; margin-bottom: 16px; animation: scaleIn 0.4s ease; }
+.onboarding-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+.onboarding-sub   { font-size: 15px; color: var(--hint); line-height: 1.55; }
+
+.onboarding-features {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 16px;
+  flex: 1;
+}
+.onboarding-feature {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+  border: 1px solid var(--border);
+}
+.onboarding-feature-icon  { font-size: 28px; flex-shrink: 0; }
+.onboarding-feature-title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.onboarding-feature-desc  { font-size: 13px; color: var(--hint); line-height: 1.4; }
+
+/* ─── Кнопка «Поделиться» ────────────────────────────────── */
+.share-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 0 16px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s;
+}
+.share-btn:active { background: var(--bg2); }
+.share-btn-icon   { font-size: 20px; }
+.share-btn-text   { flex: 1; font-size: 15px; font-weight: 500; color: var(--accent); text-align: left; }
+.share-btn-arrow  { color: var(--hint); font-size: 18px; }
+
 /* ─── Выбор роли ─────────────────────────────────────────── */
 .role-select-screen {
   display: flex;

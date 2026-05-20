@@ -257,9 +257,26 @@ function init() {
 
   setTimeout(() => {
     state.screenHistory = [];
-    const firstScreen = localStorage.getItem('bb_onboarding_done') ? 'role-select' : 'onboarding';
-    navigate(firstScreen, {}, 'none');
-    showOfferIfNeeded();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('role') === 'master') {
+      const m = getMasterById('m1');
+      if (m.name === 'Мария Иванова' || !m.name) {
+        const u = state.tgUser;
+        const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ');
+        if (fullName) {
+          m.name = fullName;
+          const parts = fullName.split(' ');
+          m.initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+        }
+      }
+      state.isMasterMode = true;
+      state.activeTab = 'master-profile';
+      navigate('master-profile-edit', {}, 'none');
+    } else {
+      const firstScreen = localStorage.getItem('bb_onboarding_done') ? 'role-select' : 'onboarding';
+      navigate(firstScreen, {}, 'none');
+      showOfferIfNeeded();
+    }
   }, 1500);
 }
 

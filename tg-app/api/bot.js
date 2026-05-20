@@ -61,6 +61,19 @@ module.exports = async function handler(req, res) {
         `Промокод: <code>BEAUTY15</code>\n\n` +
         `Введите его при записи и сэкономьте 💸`
       );
+      await send(chatId,
+        `💼 <b>Вы Бьюти Мастер?</b>\n\n` +
+        `Настройте свой профиль — добавьте фото портфолио, укажите услуги и расписание.\n\n` +
+        `Клиенты найдут вас и запишутся онлайн 📲`,
+        {
+          reply_markup: {
+            inline_keyboard: [[{
+              text: '✏️ Настроить профиль Бьюти Мастера',
+              web_app: { url: APP_URL + '?role=master' },
+            }]],
+          },
+        }
+      );
     } else if (text.startsWith('/help')) {
       await send(chatId,
         `ℹ️ <b>Как пользоваться BeautyBook</b>\n\n` +

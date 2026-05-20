@@ -41,6 +41,7 @@ if (!tg) {
     },
     showAlert: (msg) => alert(msg),
     showConfirm: (msg, cb) => cb(confirm(msg)),
+    openLink: (url) => window.open(url, '_blank'),
     colorScheme: 'light',
   };
 }
@@ -219,6 +220,25 @@ function applyTheme() {
   if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
 }
 
+// ─── Оффер (показывается один раз) ───────────────────────────
+function showOfferIfNeeded() {
+  if (localStorage.getItem('bb_offer_shown')) return;
+  const modal = document.getElementById('offer-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  function closeOffer() {
+    localStorage.setItem('bb_offer_shown', '1');
+    modal.classList.add('hidden');
+  }
+
+  document.getElementById('btn-offer-get')?.addEventListener('click', () => {
+    closeOffer();
+    tg.openLink('https://t.me/BeautyAppBook_bot/app?start=from_app');
+  });
+  document.getElementById('btn-offer-skip')?.addEventListener('click', closeOffer);
+}
+
 // ─── Инициализация ────────────────────────────────────────────
 function init() {
   tg.ready();
@@ -237,6 +257,7 @@ function init() {
   setTimeout(() => {
     state.screenHistory = [];
     navigate('role-select', {}, 'none');
+    showOfferIfNeeded();
   }, 1500);
 }
 

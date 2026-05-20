@@ -25,6 +25,21 @@
 
   <div id="toast" aria-live="polite"></div>
 
+  <div id="offer-modal" class="offer-backdrop hidden">
+    <div class="offer-card">
+      <div class="offer-emoji">🎁</div>
+      <div class="offer-title">Скидка 15% на первую запись</div>
+      <div class="offer-sub">Подпишитесь на бота — получите промокод в личное сообщение</div>
+      <ul class="offer-bullets">
+        <li>Напомним о записи за день</li>
+        <li>Первыми узнаёте о свободных окошках</li>
+        <li>Эксклюзивные акции для подписчиков</li>
+      </ul>
+      <button class="offer-btn" id="btn-offer-get">Получить скидку 15%</button>
+      <button class="offer-skip" id="btn-offer-skip">Пропустить</button>
+    </div>
+  </div>
+
   <!-- Порядок загрузки важен: каждый файл зависит от предыдущих -->
   <script src="src/api/data.js"></script>
   <script src="src/screens/client/client.js"></script>

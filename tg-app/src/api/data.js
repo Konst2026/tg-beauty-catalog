@@ -301,13 +301,18 @@ function saveMasterToStorage(masterId) {
 }
 
 function loadMasterFromStorage() {
+  const masterId = state.myMasterId || 'm1';
   try {
-    const raw = localStorage.getItem('bb_master_m1');
+    const raw = localStorage.getItem('bb_master_' + masterId);
     if (!raw) return;
     const saved = JSON.parse(raw);
-    const m = getMasterById('m1');
-    if (!m || !saved) return;
-    Object.assign(m, saved);
+    if (!saved) return;
+    const m = getMasterById(masterId);
+    if (m) {
+      Object.assign(m, saved);
+    } else {
+      MASTERS.push(saved);
+    }
   } catch (e) {}
 }
 

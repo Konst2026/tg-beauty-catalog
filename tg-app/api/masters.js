@@ -44,7 +44,7 @@ async function writeMasters(masters) {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
   if (!TOKEN) return res.status(200).json([]);  // env not set — silent fallback
@@ -65,6 +65,16 @@ module.exports = async function handler(req, res) {
       else masters.push(m);
 
       await writeMasters(masters);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (req.method === 'DELETE') {
+      const { id } = req.body || {};
+      if (!id) return res.status(400).json({ error: 'Missing id' });
+
+      const masters = await readMasters();
+      const filtered = masters.filter(x => x.id !== id);
+      await writeMasters(filtered);
       return res.status(200).json({ ok: true });
     }
 

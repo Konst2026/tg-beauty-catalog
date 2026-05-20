@@ -203,6 +203,7 @@ function renderMasterProfileEdit() {
     </div>
     <div class="screen-footer">
       <button class="btn btn-primary" id="btn-save-profile">Сохранить изменения</button>
+      <button class="btn btn-danger" style="margin-top:10px" id="btn-delete-profile">Удалить профиль</button>
     </div>`;
 }
 

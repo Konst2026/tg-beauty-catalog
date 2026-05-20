@@ -326,6 +326,23 @@ function bindMasterProfileEditEvents() {
     });
   });
 
+  document.getElementById('btn-delete-profile')?.addEventListener('click', () => {
+    tg.showConfirm('Удалить профиль мастера? Это действие нельзя отменить.', (ok) => {
+      if (!ok) return;
+      const masterId = state.myMasterId;
+      deleteMaster(masterId).then(() => {
+        state.isMasterMode = false;
+        state.activeTab = 'catalog';
+        state.myMasterId = 'm_' + (state.tgUser?.id || Date.now());
+        state.screenHistory = [];
+        tg.HapticFeedback.notificationOccurred('warning');
+        navigate('catalog', {}, 'none');
+        updateTabBar('catalog');
+        showToast('Профиль удалён');
+      });
+    });
+  });
+
   document.getElementById('btn-add-gallery')?.addEventListener('click', () => {
     const input = document.createElement('input');
     input.type = 'file';

@@ -341,6 +341,20 @@ async function loadMastersFromServer() {
   } catch (e) {}
 }
 
+// Удалить профиль мастера из localStorage и с сервера
+async function deleteMaster(masterId) {
+  const idx = MASTERS.findIndex(m => m.id === masterId);
+  if (idx >= 0) MASTERS.splice(idx, 1);
+  try { localStorage.removeItem('bb_master_' + masterId); } catch (e) {}
+  try {
+    await fetch('/api/masters', {
+      method:  'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id: masterId }),
+    });
+  } catch (e) {}
+}
+
 // Сохранить профиль мастера на сервер (без base64-фото)
 async function saveMasterToServer(masterId) {
   try {

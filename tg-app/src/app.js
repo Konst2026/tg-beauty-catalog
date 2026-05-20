@@ -273,7 +273,7 @@ function init() {
       state.activeTab = 'master-profile';
       navigate('master-profile-edit', {}, 'none');
     } else {
-      const firstScreen = localStorage.getItem('bb_onboarding_done') ? 'role-select' : 'onboarding';
+      const firstScreen = localStorage.getItem('bb_onboarding_done') ? 'catalog' : 'onboarding';
       navigate(firstScreen, {}, 'none');
       showOfferIfNeeded();
     }

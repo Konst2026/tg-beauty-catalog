@@ -24,8 +24,10 @@ function bindOnboardingEvents() {
   document.getElementById('btn-onboarding-start')?.addEventListener('click', () => {
     tg.HapticFeedback.impactOccurred('light');
     localStorage.setItem('bb_onboarding_done', '1');
+    state.isMasterMode = false;
+    state.activeTab = 'catalog';
     state.screenHistory = [];
-    navigate('role-select', {}, 'forward');
+    navigate('catalog', {}, 'forward');
   });
 }
 

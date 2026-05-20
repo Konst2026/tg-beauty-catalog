@@ -369,8 +369,9 @@ function bindMasterServiceEditEvents() {
     } else {
       m.services.push({ id: 's_' + Date.now(), name, duration, price });
     }
-    m.priceFrom = Math.min(...m.services.map(s => s.price));
+    if (m.services.length) m.priceFrom = Math.min(...m.services.map(s => s.price));
 
+    saveMasterToStorage(state.myMasterId);
     tg.HapticFeedback.notificationOccurred('success');
     showToast(state.editingServiceId ? 'Изменения сохранены' : 'Услуга добавлена ✓');
     goBack();
@@ -382,6 +383,7 @@ function bindMasterServiceEditEvents() {
       const m = getMasterById(state.myMasterId);
       m.services = m.services.filter(s => s.id !== state.editingServiceId);
       if (m.services.length) m.priceFrom = Math.min(...m.services.map(s => s.price));
+      saveMasterToStorage(state.myMasterId);
       tg.HapticFeedback.notificationOccurred('warning');
       showToast('Услуга удалена');
       goBack();

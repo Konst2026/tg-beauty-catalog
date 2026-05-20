@@ -165,7 +165,7 @@ function renderMasterProfile() {
       <div class="section-title">Портфолио</div>
       <div class="gallery-scroll">${gallery}</div>
       <div class="section-title">Услуги</div>
-      ${services}
+      ${services || '<div style="padding:12px 0;color:var(--hint);font-size:14px">Мастер пока не добавил услуги</div>'}
     </div>`;
 }
 

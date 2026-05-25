@@ -6,4 +6,5 @@ export interface IBookingRepository {
   findByMasterId(masterId: string): Promise<Booking[]>;
   cancel(id: string, cancelledBy: 'client' | 'master'): Promise<Booking | null>;
   cancelByClient(id: string, clientTelegramId: number): Promise<Booking | null>;
+  deletePendingExpired(): Promise<number>;
 }

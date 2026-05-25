@@ -14,4 +14,7 @@ export interface IMasterRepository {
   findBotCredentials(masterId: string): Promise<MasterBotCredentials | null>;
   upsert(telegramId: number, data: UpdateMasterInput): Promise<Master>;
   updateBotInfo(masterId: string, data: BotUpdateData): Promise<void>;
+  findExpiredTrials(): Promise<Master[]>;
+  findExpiringTrials(daysUntil: number): Promise<Master[]>;
+  updatePlan(masterId: string, plan: Master['plan'], paidUntil?: Date): Promise<void>;
 }

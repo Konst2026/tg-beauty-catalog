@@ -18,6 +18,7 @@ export class CreateBookingUseCase {
     const master = await this.masterRepo.findById(input.master_id);
     if (!master)              throw new DomainError('Master not found', 'MASTER_NOT_FOUND');
     if (!master.is_published) throw new DomainError('Master is not available', 'MASTER_UNAVAILABLE');
+    if (master.plan === 'expired') throw new DomainError('Master subscription expired', 'MASTER_SUBSCRIPTION_EXPIRED');
 
     const booking = await this.bookingRepo.create(input);
 

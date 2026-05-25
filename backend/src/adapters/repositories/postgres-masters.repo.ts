@@ -114,4 +114,31 @@ export class PostgresMastersRepo implements IMasterRepository {
     );
     return rows[0];
   }
+
+  async findExpiredTrials(): Promise<Master[]> {
+    const { rows } = await this.pool.query<Master>(
+      `SELECT * FROM masters WHERE plan = 'trial' AND trial_ends_at < now()`,
+    );
+    return rows;
+  }
+
+  async findExpiringTrials(daysUntil: number): Promise<Master[]> {
+    const { rows } = await this.pool.query<Master>(
+      `SELECT * FROM masters
+       WHERE plan = 'trial'
+         AND trial_ends_at >= now() + ($1 - 1) * INTERVAL '1 day'
+         AND trial_ends_at <  now() + $1       * INTERVAL '1 day'`,
+      [daysUntil],
+    );
+    return rows;
+  }
+
+  async updatePlan(masterId: string, plan: Master['plan'], paidUntil?: Date): Promise<void> {
+    await this.pool.query(
+      `UPDATE masters
+       SET plan = $2, plan_paid_until = $3, updated_at = now()
+       WHERE id = $1`,
+      [masterId, plan, paidUntil ?? null],
+    );
+  }
 }

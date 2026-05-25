@@ -26,20 +26,29 @@ import { DeleteOverrideUseCase }  from '@/use-cases/delete-override/delete-overr
 import { GetAvailableSlotsUseCase } from '@/use-cases/get-available-slots/get-available-slots.use-case';
 import { ConnectBotUseCase }      from '@/use-cases/connect-bot/connect-bot.use-case';
 import { DisconnectBotUseCase }   from '@/use-cases/disconnect-bot/disconnect-bot.use-case';
+import { ExpireTrialsUseCase }    from '@/use-cases/expire-trials/expire-trials.use-case';
+import { CleanupPendingBookingsUseCase } from '@/use-cases/cleanup-pending-bookings/cleanup-pending-bookings.use-case';
+import { GetSubscriptionUseCase } from '@/use-cases/get-subscription/get-subscription.use-case';
 import { makeCatalogRoutes }      from '@/adapters/http/catalog/catalog.controller';
 import { makeBookingsRoutes }     from '@/adapters/http/bookings/bookings.controller';
 import { makeServicesRoutes }     from '@/adapters/http/services/services.controller';
 import { makeScheduleRoutes }     from '@/adapters/http/schedule/schedule.controller';
 import { makeBotRoutes }          from '@/adapters/http/bot/bot.controller';
 import { makeWebhookRoutes }      from '@/adapters/http/webhook/webhook.controller';
+import { makeSubscriptionRoutes } from '@/adapters/http/subscription/subscription.controller';
+import { makeCheckPlan }          from '@/adapters/http/middleware/check-plan.middleware';
 import { GrammyBotApiAdapter }    from '@/infrastructure/telegram/grammy-bot-api.adapter';
 import { BotManager }             from '@/infrastructure/telegram/bot-manager';
 import { TokenCrypto }            from '@/shared/lib/token-crypto';
 import { InProcessEventBus }      from '@/shared/lib/event-bus';
 import { notificationQueue }      from '@/infrastructure/queue/notification.queue';
 import { createNotificationWorker } from '@/infrastructure/queue/notification.worker';
+import { cronQueue, scheduleCronJobs } from '@/infrastructure/queue/cron.queue';
+import { createCronWorker }       from '@/infrastructure/queue/cron.worker';
 import { TelegramNotificationAdapter } from '@/infrastructure/telegram/notification-adapter';
 import { registerNotificationEventHandlers } from '@/infrastructure/event-handlers/notification.event-handler';
+import { registerSubscriptionEventHandlers } from '@/infrastructure/event-handlers/subscription.event-handler';
+import { PaymentRequiredError }   from '@/shared/errors/payment-required-error';
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -68,10 +77,20 @@ export function buildApp() {
   const notificationAdapter = new TelegramNotificationAdapter(botManager);
   const notificationWorker  = createNotificationWorker(notificationAdapter);
   registerNotificationEventHandlers(eventBus, notificationQueue);
+  registerSubscriptionEventHandlers(eventBus, notificationAdapter);
+
+  const expireTrials           = new ExpireTrialsUseCase(mastersRepo, eventBus);
+  const cleanupPendingBookings = new CleanupPendingBookingsUseCase(bookingsRepo);
+  const getSubscription        = new GetSubscriptionUseCase(mastersRepo);
+
+  const cronWorker = createCronWorker({ expireTrials, cleanupPendingBookings });
+  scheduleCronJobs().catch(err => app.log.error({ err }, 'Failed to schedule cron jobs'));
 
   app.addHook('onClose', async () => {
     await notificationWorker.close();
     await notificationQueue.close();
+    await cronWorker.close();
+    await cronQueue.close();
   });
 
   const getMasters         = new GetMastersUseCase(mastersRepo);
@@ -113,6 +132,27 @@ export function buildApp() {
     prefix: '/api/v1/me/bot',
   });
 
+  app.register(makeSubscriptionRoutes({ getSubscription, mastersRepo }), {
+    prefix: '/api/v1/me/subscription',
+  });
+
+  const checkPlan = makeCheckPlan(mastersRepo);
+
+  // Guard mutation routes (POST/PUT/DELETE) when master plan is expired
+  app.addHook('preHandler', async (req, reply) => {
+    const method = req.method.toUpperCase();
+    if (method === 'GET' || method === 'HEAD') return;
+    const url = req.url;
+    if (
+      url.startsWith('/api/v1/me/services') ||
+      url.startsWith('/api/v1/me/schedule') ||
+      url.startsWith('/api/v1/me/bot') ||
+      url.startsWith('/api/v1/me/subscription')
+    ) {
+      await checkPlan(req, reply);
+    }
+  });
+
   app.register(makeWebhookRoutes({ mastersRepo, botManager }), {
     prefix: '/webhook',
   });
@@ -123,16 +163,21 @@ export function buildApp() {
 
   // ─── Error handler ─────────────────────────────────────────
   const domainStatusMap: Record<string, number> = {
-    MASTER_NOT_FOUND:       404,
-    MASTER_UNAVAILABLE:     422,
-    SERVICE_NOT_FOUND:       404,
-    SERVICE_LIMIT_REACHED:   422,
-    INVALID_SCHEDULE_TIME:   422,
-    OVERRIDE_NOT_FOUND:      404,
+    MASTER_NOT_FOUND:             404,
+    MASTER_UNAVAILABLE:           422,
+    MASTER_SUBSCRIPTION_EXPIRED:  402,
+    SERVICE_NOT_FOUND:            404,
+    SERVICE_LIMIT_REACHED:        422,
+    INVALID_SCHEDULE_TIME:        422,
+    OVERRIDE_NOT_FOUND:           404,
   };
 
   app.setErrorHandler(async (err: FastifyError | Error, _req, reply) => {
     app.log.error(err);
+
+    if (err instanceof PaymentRequiredError) {
+      return reply.status(402).send({ error: err.message, code: err.code });
+    }
 
     if (err instanceof DomainError) {
       const status = domainStatusMap[err.code] ?? 422;

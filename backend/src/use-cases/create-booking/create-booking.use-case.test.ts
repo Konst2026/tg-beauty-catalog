@@ -9,8 +9,10 @@ import { DomainError } from '@/shared/errors/domain-error';
 
 const mockMaster: Partial<Master> = {
   id: 'master-uuid',
+  telegram_id: 123,
   is_published: true,
   full_name: 'Test Master',
+  plan: 'trial',
 };
 
 const mockBooking: Booking = {
@@ -49,15 +51,19 @@ function makeMocks(overrides?: {
     findByMasterId:          vi.fn(),
     cancel:                  vi.fn(),
     cancelByClient:          vi.fn(),
+    deletePendingExpired:    vi.fn(),
   };
   const masterRepo: IMasterRepository = {
-    findById:           vi.fn().mockResolvedValue(masterResult),
-    findAll:            vi.fn(),
-    findByTelegramId:   vi.fn(),
-    findByTokenHash:    vi.fn(),
-    findBotCredentials: vi.fn(),
-    upsert:             vi.fn(),
-    updateBotInfo:      vi.fn(),
+    findById:            vi.fn().mockResolvedValue(masterResult),
+    findAll:             vi.fn(),
+    findByTelegramId:    vi.fn(),
+    findByTokenHash:     vi.fn(),
+    findBotCredentials:  vi.fn(),
+    upsert:              vi.fn(),
+    updateBotInfo:       vi.fn(),
+    findExpiredTrials:   vi.fn(),
+    findExpiringTrials:  vi.fn(),
+    updatePlan:          vi.fn(),
   };
   const eventBus: IEventBus = {
     publish:   vi.fn().mockResolvedValue(undefined),
@@ -93,6 +99,15 @@ describe('CreateBookingUseCase', () => {
     const uc = new CreateBookingUseCase(bookingRepo, masterRepo, eventBus);
 
     await expect(uc.execute(baseInput)).rejects.toMatchObject({ code: 'MASTER_UNAVAILABLE' });
+    expect(bookingRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('throws DomainError MASTER_SUBSCRIPTION_EXPIRED when master plan is expired', async () => {
+    const expired = { ...mockMaster, is_published: true, plan: 'expired' } as Master;
+    const { bookingRepo, masterRepo, eventBus } = makeMocks({ masterResult: expired });
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo, eventBus);
+
+    await expect(uc.execute(baseInput)).rejects.toMatchObject({ code: 'MASTER_SUBSCRIPTION_EXPIRED' });
     expect(bookingRepo.create).not.toHaveBeenCalled();
   });
 

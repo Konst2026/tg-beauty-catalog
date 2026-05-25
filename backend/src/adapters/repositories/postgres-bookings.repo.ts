@@ -71,4 +71,11 @@ export class PostgresBookingsRepo implements IBookingRepository {
     );
     return rows[0] ?? null;
   }
+
+  async deletePendingExpired(): Promise<number> {
+    const { rowCount } = await this.pool.query(
+      `DELETE FROM bookings WHERE status = 'pending' AND expires_at < now()`,
+    );
+    return rowCount ?? 0;
+  }
 }

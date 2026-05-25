@@ -16,6 +16,9 @@ export interface Master {
   bot_token_hash: string | null;
   bot_webhook_secret: string | null;
   plan: 'trial' | 'active' | 'expired';
+  trial_ends_at: Date;
+  plan_paid_until: Date | null;
+  subscription_price: number;
   is_published: boolean;
   created_at: Date;
   updated_at: Date;

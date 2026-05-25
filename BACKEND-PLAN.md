@@ -7,7 +7,7 @@
 
 ## Что строим: одна фраза
 
-**SaaS-платформа**: каждый бьюти-мастер подключает свой бот, получает изолированный кабинет, своих клиентов видят только его услуги, бот сам отвечает на вопросы и принимает записи, расписание синхронизируется с Google Calendar. 2 месяца бесплатно, затем подписка.
+**SaaS-платформа**: каждый бьюти-мастер подключает свой бот, получает изолированный кабинет, своих клиентов видят только его услуги, бот сам отвечает на вопросы и принимает записи, расписание управляется встроенным календарём приложения. 2 месяца бесплатно, затем подписка.
 
 ---
 
@@ -19,7 +19,7 @@
 | Freemium | 2 месяца полный доступ бесплатно, затем подписка. Без функциональных ограничений |
 | AI-консультант | FAQ по данным мастера + запись через диалог без Mini App |
 | Оплата | Только подписка мастера. Клиентские платежи — между мастером и клиентом напрямую |
-| Google Calendar | Двусторонняя синхронизация: запись → событие в GCal; блокировка в GCal → слот недоступен |
+| Календарь | Встроенный в приложение: недельный шаблон, блокировка дат, просмотр записей |
 
 ---
 
@@ -55,14 +55,6 @@ CREATE TABLE masters (
   theme_primary_color VARCHAR(7) DEFAULT '#E8B4B8',   -- hex
   theme_logo_url      TEXT,
   theme_name          VARCHAR(100),
-
-  -- Google Calendar
-  gcal_access_token   TEXT,                           -- зашифровано
-  gcal_refresh_token  TEXT,                           -- зашифровано
-  gcal_calendar_id    VARCHAR(200),                   -- ID календаря для синхронизации
-  gcal_webhook_channel_id VARCHAR(200),               -- Google Push channel ID
-  gcal_webhook_expiry TIMESTAMPTZ,
-  gcal_sync_token     TEXT,                           -- инкрементальный syncToken от Google
 
   -- Подписка
   plan                VARCHAR(20) NOT NULL DEFAULT 'trial'
@@ -163,7 +155,6 @@ CREATE TABLE bookings (
   cancelled_by        VARCHAR(10) CHECK (cancelled_by IN ('client','master','system')),
   notes               TEXT,
   price_snapshot      NUMERIC(10,2) NOT NULL,
-  google_event_id     VARCHAR(200),   -- ID события в Google Calendar мастера
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (end_time > start_time),
@@ -290,7 +281,7 @@ CREATE TABLE notification_log (
 | Галерея | ✅ публично | ✅ CRUD | — |
 | Отзывы | ✅ публично | Читает | Модерация |
 | Токен бота | ❌ | Вводит, не читает | Хранит зашифровано |
-| Google Calendar токен | ❌ | OAuth flow | Хранит зашифровано |
+| Расписание / блокировки | ❌ | ✅ управляет | — |
 | Тема приложения | Видит результат | ✅ настраивает | — |
 | Подписка / план | ❌ | Видит статус | Обновляет |
 | AI-диалог | Ведёт диалог | Видит историю | Обрабатывает |
@@ -355,17 +346,13 @@ GET  /api/v1/me/analytics               Статистика (записи за 
 GET  /api/v1/me/subscription            Текущий план, дата окончания
 ```
 
-### 3.3 Подключение бота и Google Calendar
+### 3.3 Подключение бота
 
 ```
 POST /api/v1/me/bot/connect             Сохранить BOT_TOKEN
                                          Body: { token }
                                          → верифицирует через getMe, сохраняет, регистрирует webhook
 DELETE /api/v1/me/bot/disconnect        Удалить токен, отключить webhook
-
-GET  /api/v1/me/gcal/auth-url           Получить OAuth2 URL для авторизации Google
-GET  /api/v1/gcal/callback              OAuth2 callback (сохраняет токены, настраивает push webhook)
-DELETE /api/v1/me/gcal/disconnect       Отключить Google Calendar
 ```
 
 ### 3.4 Webhooks (системные)
@@ -373,8 +360,7 @@ DELETE /api/v1/me/gcal/disconnect       Отключить Google Calendar
 ```
 POST /webhook/tg/:token_hash            Telegram webhook для бота мастера
                                          token_hash = sha256(bot_token) — без раскрытия токена в URL
-POST /webhook/gcal/:master_id           Google Calendar push-уведомления (синхронизация)
-POST /webhook/payments                  Уведомления платёжной системы
+POST /webhook/payments                  Уведомления платёжной системы (Stripe)
 ```
 
 ---
@@ -556,81 +542,111 @@ function tryParseBookingCommand(text: string): { action: string; service_id: str
 
 ---
 
-## 6. Google Calendar синхронизация
+## 6. Встроенный календарь
 
-### 6.1 Двусторонняя синхронизация
+Никаких внешних сервисов — всё хранится и управляется внутри платформы.
 
-```
-ПЛАТФОРМА → GOOGLE:
-Booking created → Google Calendar Events.insert()
-Booking cancelled → Google Calendar Events.delete()
-
-GOOGLE → ПЛАТФОРМА:
-Google Push Channel (webhook) уведомляет о любых изменениях в календаре мастера
-Платформа делает full sync: читает события через Events.list()
-Если событие без booking_id появилось в рабочие часы → блокируется слот
-```
-
-### 6.2 OAuth2 Flow
+### 6.1 Источники данных для календаря
 
 ```
-1. Master нажимает "Подключить Google Calendar" в кабинете
-2. GET /api/v1/me/gcal/auth-url → редирект на Google OAuth2
-3. Google → GET /api/v1/gcal/callback?code=...&state=master_id
-4. Обмен code → access_token + refresh_token (сохраняем зашифровано)
-5. Выбор календаря (по умолчанию primary)
-6. Подписка на Google Push: calendar.watch() → channel на /webhook/gcal/:master_id
-7. Первичный full sync: читаем события на 90 дней вперёд
+Что показывается в календаре мастера:
+
+schedules          → рабочие часы по дням недели (недельный шаблон)
+schedule_overrides → заблокированные/изменённые конкретные даты (отпуск, особые часы)
+bookings           → подтверждённые и pending-записи клиентов
 ```
 
-### 6.3 Обработка push-уведомления от Google
+Три таблицы уже определены в разделах 1.4 и 1.5 — дополнительной схемы не нужно.
+
+### 6.2 API календаря (добавить в раздел 3.2)
+
+```
+GET  /api/v1/me/calendar                Агрегированный вид для мастера
+                                         ?from=YYYY-MM-DD&to=YYYY-MM-DD
+                                         → { days: [{ date, isWorking, hours, bookings[], blockedSlots[] }] }
+
+POST /api/v1/me/calendar/block          Заблокировать время вручную
+                                         Body: { date, startTime?, endTime?, reason? }
+                                         → создаёт schedule_override с is_working=false (или кастомными часами)
+
+DELETE /api/v1/me/calendar/block/:id    Снять блокировку (удалить schedule_override)
+```
+
+Эндпоинты расписания уже есть в разделе 3.2 (`GET/PUT /api/v1/me/schedule`, `POST/DELETE /api/v1/me/schedule/overrides`) — `/calendar` это новый агрегирующий эндпоинт поверх них.
+
+### 6.3 Логика slot-calculator (Domain Service, нет I/O)
 
 ```typescript
-// При получении push от Google — немедленно 200, sync идёт в BullMQ
-app.post('/webhook/gcal/:master_id', async (req, res) => {
-  res.status(200).send();
-  await gcalSyncQueue.add('sync', { masterId: req.params.master_id }, {
-    jobId: `gcal_${req.params.master_id}`,   // дедупликация: не ставим в очередь дважды
-    removeOnComplete: true,
-  });
-});
+// domain/services/slot-calculator.ts
+// Чистая функция — не знает о БД, HTTP, внешних сервисах
 
-// BullMQ worker — инкрементальный sync через syncToken (не full scan!)
-async function syncGoogleCalendar(masterId: string): Promise<void> {
-  const master = await masterRepo.findById(masterId);
-  const gcal = createGCalClient(master);
-
-  let pageToken: string | undefined;
-  const changedItems: calendar_v3.Schema$Event[] = [];
-
-  // Если есть syncToken — читаем только изменения с прошлой синхронизации
-  // Если нет (первый запуск) — full sync за 90 дней, получаем syncToken
-  const listParams: calendar_v3.Params$Resource$Events$List = {
-    calendarId: master.gcal_calendar_id,
-    ...(master.gcal_sync_token
-      ? { syncToken: master.gcal_sync_token }
-      : { timeMin: new Date().toISOString(), timeMax: addDays(new Date(), 90).toISOString() }
-    ),
-  };
-
-  do {
-    const res = await gcal.events.list({ ...listParams, pageToken });
-    changedItems.push(...(res.data.items ?? []));
-    pageToken = res.data.nextPageToken ?? undefined;
-
-    // Сохраняем syncToken с последней страницы
-    if (!res.data.nextPageToken && res.data.nextSyncToken) {
-      await masterRepo.update(masterId, { gcal_sync_token: res.data.nextSyncToken });
-    }
-  } while (pageToken);
-
-  // Применяем только изменённые события (в разы меньше данных)
-  await scheduleOverrideRepo.syncFromGCalDelta(masterId, changedItems);
+interface SlotCalculatorInput {
+  schedule:  WeeklySchedule;       // из таблицы schedules
+  overrides: ScheduleOverride[];   // из таблицы schedule_overrides
+  bookings:  Booking[];            // confirmed + pending для диапазона дат
+  serviceDuration: number;         // duration_min запрашиваемой услуги
+  dateRange: { from: Date; to: Date };
 }
 
-// При 410 Gone (syncToken истёк) — сбросить токен и повторить full sync
-// gcalSyncQueue worker должен поймать ошибку GaxiosError со status 410
+function getAvailableSlots(input: SlotCalculatorInput): TimeSlot[] {
+  const slots: TimeSlot[] = [];
+
+  for (const date of eachDayInRange(input.dateRange)) {
+    const override = input.overrides.find(o => isSameDay(o.override_date, date));
+    const dayTemplate = input.schedule[date.getDay()];
+
+    // Применяем override, если есть
+    const dayConfig = override ?? dayTemplate;
+    if (!dayConfig.is_working) continue;
+
+    const workStart = parseTime(dayConfig.start_time);
+    const workEnd   = parseTime(dayConfig.end_time);
+
+    // Занятые интервалы = confirmed + pending bookings в этот день
+    const busy = input.bookings
+      .filter(b => isSameDay(b.start_time, date) && b.status !== 'cancelled')
+      .map(b => ({ start: b.start_time, end: b.end_time }));
+
+    // Генерируем слоты с шагом 15 мин, пропускаем занятые
+    let cursor = workStart;
+    while (addMinutes(cursor, input.serviceDuration) <= workEnd) {
+      const slotEnd = addMinutes(cursor, input.serviceDuration);
+      if (!overlapsAny(cursor, slotEnd, busy)) {
+        slots.push({ start: cursor, end: slotEnd });
+      }
+      cursor = addMinutes(cursor, 15);
+    }
+  }
+
+  return slots;
+}
 ```
+
+### 6.4 Вид календаря в Mini App (фронтенд)
+
+```
+Кабинет мастера → экран «Расписание»:
+
+┌─────────────────────────────────────────────┐
+│  Май 2026          < предыдущий  следующий > │
+│                                              │
+│  Пн  Вт  Ср  Чт  Пт  Сб  Вс               │
+│  25  26  27  28  29  30  31                 │
+│  [•] [•] [✕] [•] [•] [—] [—]               │
+│   •=есть записи  ✕=заблокирован  —=выходной │
+│                                              │
+│  Среда, 27 мая — заблокировано              │
+│  Пятница, 29 мая:                           │
+│    10:00 Клиент А — Маникюр (confirmed)     │
+│    12:00 Клиент Б — Педикюр (confirmed)     │
+│    14:00 ──── свободно ────                 │
+│    16:00 Клиент В — Маникюр (pending)       │
+└─────────────────────────────────────────────┘
+
+Кнопки: [Заблокировать день] [Изменить часы] [+ Запись вручную]
+```
+
+Клиентский вид (`GET /api/v1/masters/:id/slots`) — только доступные слоты, без имён клиентов.
 
 ---
 
@@ -712,14 +728,14 @@ async function checkPlan(req: FastifyRequest, res: FastifyReply): Promise<void> 
 | `GET /api/v1/me/bookings` | 200 | — | Существующие записи видны |
 | `GET /api/v1/me/subscription` | 200 | — | Страница оплаты — работает |
 | AI-ответы в боте | — | — | «[Имя] сейчас не принимает. Подпишитесь позже» |
-| GCal sync | — | — | Worker пропускает задачи для expired мастеров |
+| Блокировка календаря | — | — | Мастер видит статус подписки, редактирование недоступно |
 
 **Фронтенд** по error code `MASTER_SUBSCRIPTION_EXPIRED` показывает экран оплаты вместо формы.
 ```
 - Существующие записи → видны, уведомления → работают
 - Новые записи от клиентов → 402 MASTER_SUBSCRIPTION_EXPIRED
 - AI-ответы → бот отвечает шаблонным сообщением
-- Google Calendar sync → worker пропускает задачи
+- Управление расписанием → GET работает, блокировки и изменения часов → 402
 - Кабинет мастера → GET работает, все POST/PUT/DELETE на изменение → 402
 ```
 
@@ -837,7 +853,7 @@ function verifyInitData(initDataRaw: string, botToken: string): TelegramUser {
 ### 10.2 Шифрование секретов в БД
 
 ```typescript
-// pgcrypto: bot_token и gcal_refresh_token шифруются симметрично
+// pgcrypto: bot_token шифруется симметрично
 // Ключ шифрования — MASTER_SECRET_KEY из environment variable
 // Никогда не логировать, не передавать в ответе API
 
@@ -874,7 +890,7 @@ backend/
 │   │       ├── master.repo.port.ts
 │   │       ├── notification.port.ts
 │   │       ├── ai.port.ts
-│   │       ├── calendar.port.ts
+│   │       ├── calendar.port.ts        # ICalendarRepository (schedule + overrides)
 │   │       └── event-bus.port.ts
 │   │
 │   ├── use-cases/
@@ -882,7 +898,7 @@ backend/
 │   │   ├── cancel-booking/
 │   │   ├── get-available-slots/
 │   │   ├── connect-bot/
-│   │   ├── connect-google-calendar/
+│   │   ├── get-calendar-view/
 │   │   ├── handle-ai-message/
 │   │   └── manage-subscription/
 │   │
@@ -892,8 +908,8 @@ backend/
 │   │   │   ├── bookings/
 │   │   │   ├── masters/
 │   │   │   ├── bot/             # connect, disconnect
-│   │   │   ├── gcal/            # oauth, callback
-│   │   │   ├── webhooks/        # tg, gcal, payments
+│   │   │   ├── calendar/        # GET /me/calendar, POST /me/calendar/block
+│   │   │   ├── webhooks/        # tg, payments
 │   │   │   └── admin/
 │   │   └── repositories/
 │   │       ├── postgres-master.repo.ts
@@ -906,8 +922,7 @@ backend/
 │       │   ├── pool.ts
 │       │   └── migrations/
 │       │       ├── 001_initial.sql
-│       │       ├── 002_gcal.sql
-│       │       └── 003_ai_conversations.sql
+│       │       └── 002_ai_conversations.sql
 │       ├── redis/
 │       │   └── client.ts
 │       ├── telegram/
@@ -917,14 +932,11 @@ backend/
 │       │   └── notification-adapter.ts
 │       ├── ai/
 │       │   └── claude-ai.adapter.ts  # implements IAiPort
-│       ├── google-calendar/
-│       │   └── gcal.adapter.ts       # implements ICalendarPort
 │       ├── storage/
 │       │   └── s3.adapter.ts         # фото галереи и логотипов
 │       └── queue/
 │           ├── notification.queue.ts
-│           ├── notification.worker.ts
-│           └── gcal-sync.worker.ts
+│           └── notification.worker.ts
 │
 ├── app.ts              # Composition Root
 ├── server.ts
@@ -939,7 +951,7 @@ backend/
 ```bash
 # База данных
 DATABASE_URL=postgresql://user:password@localhost:5432/beautybook
-MASTER_SECRET_KEY=64-char-hex-key   # шифрование bot_token и gcal_refresh_token
+MASTER_SECRET_KEY=64-char-hex-key   # шифрование bot_token
 
 # Redis
 REDIS_URL=redis://localhost:6379
@@ -950,11 +962,6 @@ MINI_APP_URL=https://app.beautybook.com
 
 # AI (Anthropic)
 ANTHROPIC_API_KEY=sk-ant-...
-
-# Google Calendar
-GCAL_CLIENT_ID=...
-GCAL_CLIENT_SECRET=...
-GCAL_REDIRECT_URI=https://api.beautybook.com/api/v1/gcal/callback
 
 # Файловое хранилище (S3-совместимое)
 S3_BUCKET=beautybook-media
@@ -977,14 +984,17 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 **Цель:** мастер подключает бота, клиенты записываются через Mini App.
 
 ```
-[ ] PostgreSQL migrations 001 (все таблицы без gcal, ai_conversations)
+[ ] PostgreSQL migrations 001 (все таблицы без ai_conversations)
 [ ] Master CRUD + auth через initData
 [ ] Services CRUD
-[ ] Schedule CRUD (weekly template)
-[ ] Slot calculator (чистая функция)
+[ ] Schedule CRUD (weekly template + overrides)
+[ ] Slot calculator (чистая функция, domain/services/)
 [ ] GET /catalog, GET /masters/:id, GET /masters/:id/slots
-[ ] POST /bookings (с EXCLUDE GIST защитой)
+[ ] POST /bookings с pending-статусом (EXCLUDE GIST для pending + confirmed)
+[ ] Cron: DELETE pending bookings WHERE expires_at < now() (каждые 5 мин)
 [ ] GET /my/bookings, POST /bookings/:id/cancel
+[ ] GET /me/calendar?from=&to= (агрегация schedule + overrides + bookings)
+[ ] POST /me/calendar/block, DELETE /me/calendar/block/:id
 [ ] Bot connect: POST /me/bot/connect → getMe → setWebhook
 [ ] Webhook dispatcher /webhook/tg/:token_hash
 [ ] Grammy bot: /start → открыть Mini App
@@ -1007,20 +1017,7 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 [ ] Rate limiting для AI запросов
 ```
 
-### Этап 3 — Google Calendar (2 недели)
-
-```
-[ ] OAuth2 flow (auth-url + callback)
-[ ] Сохранение refresh_token (зашифровано)
-[ ] При создании booking → Events.insert()
-[ ] При отмене → Events.delete()
-[ ] gcal-sync.worker.ts
-[ ] Google Push Channel: calendar.watch()
-[ ] Webhook /webhook/gcal/:master_id → sync job
-[ ] Полная двусторонняя синхронизация
-```
-
-### Этап 4 — CRM и аналитика (1 неделя)
+### Этап 3 — CRM и аналитика (1 неделя)
 
 ```
 [ ] master_clients: auto-upsert при каждой записи
@@ -1030,14 +1027,14 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 [ ] Обновление rating и review_count (триггер или cron)
 ```
 
-### Этап 5 — Монетизация (1 неделя)
+### Этап 4 — Монетизация (1 неделя)
 
 ```
 [ ] Subscription lifecycle (trial → expired → active)
-[ ] Гейтинг по плану (middleware checkPlan)
+[ ] Гейтинг по плану (middleware checkPlan по таблице из раздела 8.2)
 [ ] Cron уведомлений о подписке
-[ ] Admin API: активировать подписку вручную
-[ ] (Опционально) Telegram Stars или ЮKassa
+[ ] Stripe Billing: Checkout Session, webhook invoice.payment_succeeded
+[ ] Admin API: активировать подписку вручную (для MVP до Stripe)
 ```
 
 ---
@@ -1052,7 +1049,7 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 | ORM | Нет — raw SQL в repos | AI читает SQL лучше ORM-магии, полный контроль |
 | Очередь | BullMQ + Redis 7 | Персистентные jobs, delayed jobs, jobId для отмены |
 | AI | Anthropic claude-haiku-4-5 | Быстро, дёшево для диалогов, API простой |
-| Google Calendar | googleapis npm | Официальный клиент |
+| Встроенный календарь | slot-calculator.ts (Domain Service) | Чистая функция, нет внешних зависимостей |
 | Файлы | S3-совместимое (Cloudflare R2) | Дёшево, CDN из коробки |
 | Хостинг | Railway или VPS | Поддержка long-running процессов (BullMQ workers) |
 | Frontend | Текущий vanilla JS → React (Этап 2+) | Текущий прототип работает, React нужен для сложных UI |
@@ -1063,12 +1060,12 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 
 1. **master_id только из verifyInitData()** — никогда из req.body или query-параметров
 2. **bot_token никогда не возвращается через API** — только write-only, хранится зашифровано
-3. **gcal_refresh_token никогда не логируется** — только в БД зашифровано
+3. **bot_token никогда не логируется** — только в БД зашифровано через pgcrypto
 4. **Webhook URL содержит sha256(token), не сам токен** — иначе токен утечёт в логи Telegram
 5. **Grammy bot создаётся один раз на master_id** — не создавать новый на каждый webhook (Map-кэш)
 6. **AI messages ограничены rate limit** — иначе один клиент выжжет весь месячный бюджет API
 7. **EXCLUDE GIST не удалять и не обходить** — единственная абсолютная защита от двойной записи (pending + confirmed оба защищены)
 8. **Миграции только аддитивные** — никогда не DROP TABLE или DROP COLUMN в продакшне без backup
 9. **Stripe webhook верифицировать через `stripe.webhooks.constructEvent()`** — никогда не доверять телу без проверки подписи `STRIPE_WEBHOOK_SECRET`
-10. **gcal_sync_token сбрасывать при 410 Gone** — иначе GCal sync навсегда сломан для этого мастера
+10. **slot-calculator — только чистые функции** — никакого I/O, БД или HTTP внутри domain/services/slot-calculator.ts
 11. **pending bookings удалять cron-задачей** — `DELETE FROM bookings WHERE status='pending' AND expires_at < now()` каждые 5 минут

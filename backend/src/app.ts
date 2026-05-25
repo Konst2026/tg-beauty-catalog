@@ -4,16 +4,22 @@ import rateLimit from '@fastify/rate-limit';
 import { DomainError } from '@/shared/errors/domain-error';
 import { env } from '@/shared/config/env';
 
-import { pool }                  from '@/infrastructure/postgres/pool';
-import { PostgresMastersRepo }   from '@/adapters/repositories/postgres-masters.repo';
-import { PostgresBookingsRepo }  from '@/adapters/repositories/postgres-bookings.repo';
-import { GetMastersUseCase }     from '@/use-cases/get-masters/get-masters.use-case';
-import { GetMasterByIdUseCase }  from '@/use-cases/get-master-by-id/get-master-by-id.use-case';
-import { CreateBookingUseCase }  from '@/use-cases/create-booking/create-booking.use-case';
-import { GetMyBookingsUseCase }  from '@/use-cases/get-my-bookings/get-my-bookings.use-case';
-import { CancelBookingUseCase }  from '@/use-cases/cancel-booking/cancel-booking.use-case';
-import { makeCatalogRoutes }     from '@/adapters/http/catalog/catalog.controller';
-import { makeBookingsRoutes }    from '@/adapters/http/bookings/bookings.controller';
+import { pool }                   from '@/infrastructure/postgres/pool';
+import { PostgresMastersRepo }    from '@/adapters/repositories/postgres-masters.repo';
+import { PostgresBookingsRepo }   from '@/adapters/repositories/postgres-bookings.repo';
+import { PostgresServicesRepo }   from '@/adapters/repositories/postgres-services.repo';
+import { GetMastersUseCase }      from '@/use-cases/get-masters/get-masters.use-case';
+import { GetMasterByIdUseCase }   from '@/use-cases/get-master-by-id/get-master-by-id.use-case';
+import { CreateBookingUseCase }   from '@/use-cases/create-booking/create-booking.use-case';
+import { GetMyBookingsUseCase }   from '@/use-cases/get-my-bookings/get-my-bookings.use-case';
+import { CancelBookingUseCase }   from '@/use-cases/cancel-booking/cancel-booking.use-case';
+import { GetServicesUseCase }     from '@/use-cases/get-services/get-services.use-case';
+import { CreateServiceUseCase }   from '@/use-cases/create-service/create-service.use-case';
+import { UpdateServiceUseCase }   from '@/use-cases/update-service/update-service.use-case';
+import { DeleteServiceUseCase }   from '@/use-cases/delete-service/delete-service.use-case';
+import { makeCatalogRoutes }      from '@/adapters/http/catalog/catalog.controller';
+import { makeBookingsRoutes }     from '@/adapters/http/bookings/bookings.controller';
+import { makeServicesRoutes }     from '@/adapters/http/services/services.controller';
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -31,12 +37,17 @@ export function buildApp() {
   // ─── Composition Root ──────────────────────────────────────
   const mastersRepo  = new PostgresMastersRepo(pool);
   const bookingsRepo = new PostgresBookingsRepo(pool);
+  const servicesRepo = new PostgresServicesRepo(pool);
 
   const getMasters    = new GetMastersUseCase(mastersRepo);
   const getMasterById = new GetMasterByIdUseCase(mastersRepo);
   const createBooking = new CreateBookingUseCase(bookingsRepo, mastersRepo);
   const getMyBookings = new GetMyBookingsUseCase(bookingsRepo);
   const cancelBooking = new CancelBookingUseCase(bookingsRepo);
+  const getServices   = new GetServicesUseCase(servicesRepo);
+  const createService = new CreateServiceUseCase(servicesRepo);
+  const updateService = new UpdateServiceUseCase(servicesRepo);
+  const deleteService = new DeleteServiceUseCase(servicesRepo);
 
   // ─── Routes ────────────────────────────────────────────────
   app.register(makeCatalogRoutes({ getMasters, getMasterById }), {
@@ -47,14 +58,20 @@ export function buildApp() {
     prefix: '/api/v1/bookings',
   });
 
+  app.register(makeServicesRoutes({ getServices, createService, updateService, deleteService, mastersRepo }), {
+    prefix: '/api/v1/me/services',
+  });
+
   app.get('/health', { config: { rateLimit: false } }, async () => ({
     status: 'ok', ts: new Date().toISOString(),
   }));
 
   // ─── Error handler ─────────────────────────────────────────
   const domainStatusMap: Record<string, number> = {
-    MASTER_NOT_FOUND:    404,
-    MASTER_UNAVAILABLE:  422,
+    MASTER_NOT_FOUND:       404,
+    MASTER_UNAVAILABLE:     422,
+    SERVICE_NOT_FOUND:      404,
+    SERVICE_LIMIT_REACHED:  422,
   };
 
   app.setErrorHandler(async (err: FastifyError | Error, _req, reply) => {

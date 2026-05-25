@@ -1,0 +1,98 @@
+import { describe, it, expect, vi } from 'vitest';
+import { CreateBookingUseCase } from './create-booking.use-case';
+import type { IBookingRepository } from '@/domain/ports/booking.repo.port';
+import type { IMasterRepository } from '@/domain/ports/master.repo.port';
+import type { Booking } from '@/domain/booking/booking.entity';
+import type { Master } from '@/domain/master/master.entity';
+import { DomainError } from '@/shared/errors/domain-error';
+
+const mockMaster: Partial<Master> = {
+  id: 'master-uuid',
+  is_published: true,
+  full_name: 'Test Master',
+};
+
+const mockBooking: Booking = {
+  id: 'booking-uuid',
+  master_id: 'master-uuid',
+  service_id: 'service-uuid',
+  client_telegram_id: 111,
+  client_name: 'Test Client',
+  start_time: new Date('2026-06-01T10:00:00Z'),
+  end_time:   new Date('2026-06-01T11:00:00Z'),
+  status: 'confirmed',
+  price_snapshot: 1500,
+  notes: null,
+  created_at: new Date(),
+  updated_at: new Date(),
+};
+
+const baseInput = {
+  master_id:          'master-uuid',
+  service_id:         'service-uuid',
+  client_telegram_id: 111,
+  client_name:        'Test Client',
+  start_time:         new Date('2026-06-01T10:00:00Z'),
+  end_time:           new Date('2026-06-01T11:00:00Z'),
+  price_snapshot:     1500,
+};
+
+function makeMockRepos(overrides?: {
+  masterResult?: Master | null;
+  bookingResult?: Booking;
+}) {
+  const masterResult = overrides && 'masterResult' in overrides ? overrides.masterResult : mockMaster;
+  const bookingRepo: IBookingRepository = {
+    create:                  vi.fn().mockResolvedValue(overrides?.bookingResult ?? mockBooking),
+    findByClientTelegramId:  vi.fn(),
+    findByMasterId:          vi.fn(),
+    cancel:                  vi.fn(),
+    cancelByClient:          vi.fn(),
+  };
+  const masterRepo: IMasterRepository = {
+    findById:          vi.fn().mockResolvedValue(masterResult),
+    findAll:           vi.fn(),
+    findByTelegramId:  vi.fn(),
+    upsert:            vi.fn(),
+  };
+  return { bookingRepo, masterRepo };
+}
+
+describe('CreateBookingUseCase', () => {
+  it('creates booking when master exists and is published', async () => {
+    const { bookingRepo, masterRepo } = makeMockRepos();
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo);
+
+    const result = await uc.execute(baseInput);
+
+    expect(result).toEqual(mockBooking);
+    expect(bookingRepo.create).toHaveBeenCalledWith(baseInput);
+  });
+
+  it('throws DomainError MASTER_NOT_FOUND when master does not exist', async () => {
+    const { bookingRepo, masterRepo } = makeMockRepos({ masterResult: null });
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo);
+
+    await expect(uc.execute(baseInput)).rejects.toThrow(DomainError);
+    await expect(uc.execute(baseInput)).rejects.toMatchObject({ code: 'MASTER_NOT_FOUND' });
+    expect(bookingRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('throws DomainError MASTER_UNAVAILABLE when master is not published', async () => {
+    const unpublished = { ...mockMaster, is_published: false } as Master;
+    const { bookingRepo, masterRepo } = makeMockRepos({ masterResult: unpublished });
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo);
+
+    await expect(uc.execute(baseInput)).rejects.toMatchObject({ code: 'MASTER_UNAVAILABLE' });
+    expect(bookingRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('propagates repository error (e.g. 23P01 GIST conflict) to caller', async () => {
+    const { bookingRepo, masterRepo } = makeMockRepos();
+    const pgError = Object.assign(new Error('exclusion violation'), { code: '23P01' });
+    vi.mocked(bookingRepo.create).mockRejectedValue(pgError);
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo);
+
+    await expect(uc.execute(baseInput)).rejects.toMatchObject({ code: '23P01' });
+  });
+});

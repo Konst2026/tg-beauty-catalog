@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target":            "ES2022",
+    "module":            "CommonJS",
+    "moduleResolution":  "node",
+    "strict":            true,
+    "esModuleInterop":   true,
+    "skipLibCheck":      true,
+    "outDir":            "dist",
+    "rootDir":           "src",
+    "baseUrl":           "src",
+    "paths": {
+      "@/domain/*":         ["domain/*"],
+      "@/use-cases/*":      ["use-cases/*"],
+      "@/adapters/*":       ["adapters/*"],
+      "@/infrastructure/*": ["infrastructure/*"],
+      "@/shared/*":         ["shared/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

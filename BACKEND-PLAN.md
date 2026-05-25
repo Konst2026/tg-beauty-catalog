@@ -1078,7 +1078,7 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 [ ] Trial plan: 2 месяца, cron для expired
 [ ] Gallery upload (Supabase Storage — bucket beautybook-media)
 [ ] Theme config (color, logo)
-[ ] Деплой на Railway (нужен: BOT_TOKEN, DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+[x] Деплой на Railway → https://backend-production-ed11d.up.railway.app
 ```
 
 ### Этап 2 — AI (2 недели)

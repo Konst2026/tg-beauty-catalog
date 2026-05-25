@@ -270,10 +270,12 @@ function init() {
   setTimeout(() => {
     state.screenHistory = [];
     const params = new URLSearchParams(window.location.search);
+    const masterIdParam = params.get('m') || tg.initDataUnsafe?.start_param?.replace('m_', '');
+
     if (params.get('role') === 'master') {
+      // Мастер открывает свой кабинет
       let m = getMasterById(state.myMasterId);
       if (!m) {
-        // Новый мастер — создаём запись в MASTERS
         const u = state.tgUser;
         const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ');
         const parts = (fullName || 'Мастер').split(' ');
@@ -296,14 +298,21 @@ function init() {
         };
         MASTERS.push(m);
       }
-      // Загружаем сохранённый профиль из localStorage если есть
       const savedRaw = localStorage.getItem('bb_master_' + state.myMasterId);
       if (savedRaw) try { Object.assign(m, JSON.parse(savedRaw)); } catch (e) {}
 
       state.isMasterMode = true;
       state.activeTab = 'master-profile';
       navigate('master-profile-edit', {}, 'none');
+
+    } else if (masterIdParam) {
+      // Клиент открыл бота конкретного мастера — показываем только его каталог
+      state.selectedMasterId = masterIdParam;
+      state.singleMasterMode = true;
+      navigate('master-profile', { selectedMasterId: masterIdParam }, 'none');
+
     } else {
+      // Обычный вход — общий каталог
       const firstScreen = localStorage.getItem('bb_onboarding_done') ? 'catalog' : 'onboarding';
       navigate(firstScreen, {}, 'none');
       showOfferIfNeeded();

@@ -326,6 +326,52 @@ function bindMasterProfileEditEvents() {
     });
   });
 
+  document.getElementById('btn-connect-bot')?.addEventListener('click', async () => {
+    const tokenInput = document.getElementById('inp-bot-token');
+    const token = tokenInput?.value.trim();
+    if (!token) { showToast('Введите токен бота'); return; }
+
+    const btn = document.getElementById('btn-connect-bot');
+    btn.disabled = true;
+    btn.textContent = 'Подключаем...';
+
+    try {
+      const m = getMasterById(state.myMasterId);
+      const res = await fetch('/api/bot/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          telegram_id: state.tgUser?.id,
+          full_name: m.name || state.tgUser?.first_name || 'Мастер',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast(data.error || 'Ошибка подключения. Проверьте токен.');
+        btn.disabled = false;
+        btn.textContent = 'Подключить бота';
+        return;
+      }
+      localStorage.setItem('bb_bot_' + state.myMasterId, JSON.stringify({
+        bot_username: data.bot_username,
+        webhook_url:  data.webhook_url,
+      }));
+      tg.HapticFeedback.notificationOccurred('success');
+      showToast('Бот @' + data.bot_username + ' подключён ✓');
+      navigate('master-profile-edit', {}, 'none');
+    } catch {
+      showToast('Ошибка сети. Попробуйте снова.');
+      btn.disabled = false;
+      btn.textContent = 'Подключить бота';
+    }
+  });
+
+  document.getElementById('btn-change-bot')?.addEventListener('click', () => {
+    localStorage.removeItem('bb_bot_' + state.myMasterId);
+    navigate('master-profile-edit', {}, 'none');
+  });
+
   document.getElementById('btn-delete-profile')?.addEventListener('click', () => {
     tg.showConfirm('Удалить профиль мастера? Это действие нельзя отменить.', (ok) => {
       if (!ok) return;

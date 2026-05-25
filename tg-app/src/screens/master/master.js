@@ -128,6 +128,27 @@ function renderMasterServiceEdit() {
 function renderMasterProfileEdit() {
   const m = getMasterById(state.myMasterId);
 
+  const botRaw = localStorage.getItem('bb_bot_' + state.myMasterId);
+  const botData = botRaw ? (() => { try { return JSON.parse(botRaw); } catch { return null; } })() : null;
+  const botSectionHtml = botData
+    ? `<div class="form-group">
+         <div style="display:flex;align-items:center;gap:12px;padding:4px 0">
+           <span style="font-size:22px">✅</span>
+           <div style="flex:1">
+             <div style="font-weight:600">@${botData.bot_username}</div>
+             <div class="form-hint">Бот подключён · клиенты записываются через него</div>
+           </div>
+           <button class="btn btn-sm btn-secondary" id="btn-change-bot">Изменить</button>
+         </div>
+       </div>`
+    : `<div class="form-group">
+         <label class="form-label">Токен бота (от @BotFather)</label>
+         <input class="form-input" id="inp-bot-token" type="text"
+           placeholder="1234567890:AAB..." autocomplete="off">
+         <div class="form-hint" style="margin-top:6px">Создайте бота через @BotFather и вставьте токен</div>
+       </div>
+       <button class="btn btn-secondary" id="btn-connect-bot">Подключить бота</button>`;
+
   const galleryItems = m.gallery.map((g, idx) => `
     <div class="gallery-manage-item" style="background-image:${g.bg}" data-replace-idx="${idx}">
       <div class="gallery-edit-badge">📷</div>
@@ -200,6 +221,10 @@ function renderMasterProfileEdit() {
         <textarea class="form-textarea" id="inp-master-promo" maxlength="44"
           placeholder="Например: скидка 20% на маникюр до конца мая 🎉">${m.promo || ''}</textarea>
       </div>
+    </div>
+    <div class="section-title" style="padding:0 16px;margin-top:4px">Мой Telegram-бот</div>
+    <div class="form-section">
+      ${botSectionHtml}
     </div>
     <div class="screen-footer">
       <button class="btn btn-primary" id="btn-save-profile">Сохранить изменения</button>

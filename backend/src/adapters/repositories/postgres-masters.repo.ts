@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { Master, MasterWithServices, UpdateMasterInput, MasterBotCredentials, BotUpdateData } from '@/domain/master/master.entity';
+import type { Master, MasterWithServices, UpdateMasterInput, UpdateThemeInput, MasterBotCredentials, BotUpdateData } from '@/domain/master/master.entity';
 import type { IMasterRepository, GetMastersFilter } from '@/domain/ports/master.repo.port';
 
 export class PostgresMastersRepo implements IMasterRepository {
@@ -139,6 +139,22 @@ export class PostgresMastersRepo implements IMasterRepository {
        SET plan = $2, plan_paid_until = $3, updated_at = now()
        WHERE id = $1`,
       [masterId, plan, paidUntil ?? null],
+    );
+  }
+
+  async updateTheme(masterId: string, input: UpdateThemeInput): Promise<void> {
+    const colMap: Record<keyof UpdateThemeInput, string> = {
+      primary_color: 'theme_primary_color',
+      logo_url:      'theme_logo_url',
+      name:          'theme_name',
+    };
+    const keys = (Object.keys(input) as (keyof UpdateThemeInput)[]).filter(k => k in input);
+    if (keys.length === 0) return;
+    const setClauses = keys.map((k, i) => `${colMap[k]} = $${i + 2}`).join(', ');
+    const values: unknown[] = [masterId, ...keys.map(k => input[k])];
+    await this.pool.query(
+      `UPDATE masters SET ${setClauses}, updated_at = now() WHERE id = $1`,
+      values,
     );
   }
 }

@@ -1,6 +1,6 @@
 import type { Pool } from 'pg';
 import type { IScheduleRepository } from '@/domain/ports/schedule.repo.port';
-import type { Schedule, ScheduleOverride, UpsertScheduleInput, UpsertOverrideInput } from '@/domain/schedule/schedule.entity';
+import type { Schedule, ScheduleOverride, UpsertScheduleInput, UpsertOverrideInput, CalendarBooking } from '@/domain/schedule/schedule.entity';
 
 export class PostgresSchedulesRepo implements IScheduleRepository {
   constructor(private readonly pool: Pool) {}
@@ -69,5 +69,20 @@ export class PostgresSchedulesRepo implements IScheduleRepository {
       [masterId, date],
     );
     return rows.map(r => ({ start: r.start_time, end: r.end_time }));
+  }
+
+  async getBookingsForCalendar(masterId: string, from: string, to: string): Promise<CalendarBooking[]> {
+    const { rows } = await this.pool.query<CalendarBooking>(
+      `SELECT b.id, b.start_time, b.end_time, b.client_name, b.status,
+              s.name AS service_name
+       FROM bookings b
+       JOIN services s ON s.id = b.service_id
+       WHERE b.master_id = $1
+         AND b.status IN ('confirmed', 'pending')
+         AND b.start_time::date BETWEEN $2::date AND $3::date
+       ORDER BY b.start_time`,
+      [masterId, from, to],
+    );
+    return rows;
   }
 }

@@ -1069,8 +1069,8 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 [x] Schedule CRUD (GET/PUT /api/v1/me/schedule/template, GET/PUT/DELETE /api/v1/me/schedule/overrides)
 [x] Slot calculator (чистая функция domain/schedule/slot-calculator.ts — нет I/O)
 [x] GET /api/v1/catalog/masters/:id/slots?date=YYYY-MM-DD&service_id= (override > weekly template)
-[ ] GET /api/v1/me/calendar?from=&to= (агрегация schedule + overrides + bookings)
-[ ] POST /api/v1/me/calendar/block, DELETE /api/v1/me/calendar/block/:id
+[x] GET /api/v1/me/calendar?from=&to= (агрегация schedule + overrides + bookings)
+[x] POST /api/v1/me/calendar/block, DELETE /api/v1/me/calendar/block/:id
 [x] Bot connect: POST /api/v1/me/bot/connect → getMe → setWebhook (AES-256-GCM encrypt token)
 [x] DELETE /api/v1/me/bot/disconnect → deleteWebhook + clear DB
 [x] Webhook dispatcher /webhook/tg/:token_hash (multi-bot, verify X-Telegram-Bot-Api-Secret-Token)
@@ -1084,8 +1084,8 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
     - BullMQ queue+worker, delayed jobs with jobId for cancellation
     - Railway: Redis service (redis:7-alpine) provisioned, REDIS_URL set via private networking
 [x] Trial plan: 2 месяца, cron для expired
-[ ] Gallery upload (Supabase Storage — bucket beautybook-media)
-[ ] Theme config (color, logo)
+[x] Gallery upload (Supabase Storage — bucket beautybook-media)
+[x] Theme config (color, logo)
 [x] Деплой на Railway → https://backend-production-ed11d.up.railway.app
 ```
 

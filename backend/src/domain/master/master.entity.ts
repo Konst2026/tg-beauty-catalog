@@ -19,9 +19,18 @@ export interface Master {
   trial_ends_at: Date;
   plan_paid_until: Date | null;
   subscription_price: number;
+  theme_primary_color: string;
+  theme_logo_url: string | null;
+  theme_name: string | null;
   is_published: boolean;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface UpdateThemeInput {
+  primary_color?: string;
+  logo_url?: string | null;
+  name?: string | null;
 }
 
 export interface MasterBotCredentials {

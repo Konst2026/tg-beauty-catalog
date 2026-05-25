@@ -31,3 +31,20 @@ export interface UpsertOverrideInput {
   end_time?:     string | null;
   reason?:       string | null;
 }
+
+export interface CalendarBooking {
+  id:           string;
+  start_time:   Date;
+  end_time:     Date;
+  client_name:  string | null;
+  service_name: string;
+  status:       string;
+}
+
+export interface CalendarDay {
+  date:        string; // 'YYYY-MM-DD'
+  is_working:  boolean;
+  hours:       { start: string; end: string } | null;
+  bookings:    CalendarBooking[];
+  override_id: string | null;
+}

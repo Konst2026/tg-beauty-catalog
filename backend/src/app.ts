@@ -28,19 +28,28 @@ import { ConnectBotUseCase }      from '@/use-cases/connect-bot/connect-bot.use-
 import { DisconnectBotUseCase }   from '@/use-cases/disconnect-bot/disconnect-bot.use-case';
 import { ExpireTrialsUseCase }    from '@/use-cases/expire-trials/expire-trials.use-case';
 import { CleanupPendingBookingsUseCase } from '@/use-cases/cleanup-pending-bookings/cleanup-pending-bookings.use-case';
-import { GetSubscriptionUseCase } from '@/use-cases/get-subscription/get-subscription.use-case';
-import { makeCatalogRoutes }      from '@/adapters/http/catalog/catalog.controller';
-import { makeBookingsRoutes }     from '@/adapters/http/bookings/bookings.controller';
-import { makeServicesRoutes }     from '@/adapters/http/services/services.controller';
-import { makeScheduleRoutes }     from '@/adapters/http/schedule/schedule.controller';
-import { makeBotRoutes }          from '@/adapters/http/bot/bot.controller';
-import { makeWebhookRoutes }      from '@/adapters/http/webhook/webhook.controller';
-import { makeSubscriptionRoutes } from '@/adapters/http/subscription/subscription.controller';
-import { makeCheckPlan }          from '@/adapters/http/middleware/check-plan.middleware';
-import { GrammyBotApiAdapter }    from '@/infrastructure/telegram/grammy-bot-api.adapter';
-import { BotManager }             from '@/infrastructure/telegram/bot-manager';
-import { TokenCrypto }            from '@/shared/lib/token-crypto';
-import { InProcessEventBus }      from '@/shared/lib/event-bus';
+import { GetSubscriptionUseCase }    from '@/use-cases/get-subscription/get-subscription.use-case';
+import { GetCalendarViewUseCase }    from '@/use-cases/get-calendar-view/get-calendar-view.use-case';
+import { UploadGalleryPhotoUseCase } from '@/use-cases/upload-gallery-photo/upload-gallery-photo.use-case';
+import { DeleteGalleryPhotoUseCase } from '@/use-cases/delete-gallery-photo/delete-gallery-photo.use-case';
+import { UpdateThemeUseCase }        from '@/use-cases/update-theme/update-theme.use-case';
+import { makeCatalogRoutes }         from '@/adapters/http/catalog/catalog.controller';
+import { makeBookingsRoutes }        from '@/adapters/http/bookings/bookings.controller';
+import { makeServicesRoutes }        from '@/adapters/http/services/services.controller';
+import { makeScheduleRoutes }        from '@/adapters/http/schedule/schedule.controller';
+import { makeCalendarRoutes }        from '@/adapters/http/calendar/calendar.controller';
+import { makeGalleryRoutes }         from '@/adapters/http/gallery/gallery.controller';
+import { makeThemeRoutes }           from '@/adapters/http/theme/theme.controller';
+import { makeBotRoutes }             from '@/adapters/http/bot/bot.controller';
+import { makeWebhookRoutes }         from '@/adapters/http/webhook/webhook.controller';
+import { makeSubscriptionRoutes }    from '@/adapters/http/subscription/subscription.controller';
+import { makeCheckPlan }             from '@/adapters/http/middleware/check-plan.middleware';
+import { GrammyBotApiAdapter }        from '@/infrastructure/telegram/grammy-bot-api.adapter';
+import { BotManager }                 from '@/infrastructure/telegram/bot-manager';
+import { TokenCrypto }                from '@/shared/lib/token-crypto';
+import { InProcessEventBus }          from '@/shared/lib/event-bus';
+import { PostgresGalleryRepo }        from '@/adapters/repositories/postgres-gallery.repo';
+import { SupabaseStorageAdapter }     from '@/infrastructure/storage/supabase-storage.adapter';
 import { notificationQueue }      from '@/infrastructure/queue/notification.queue';
 import { createNotificationWorker } from '@/infrastructure/queue/notification.worker';
 import { cronQueue, scheduleCronJobs } from '@/infrastructure/queue/cron.queue';
@@ -68,6 +77,8 @@ export function buildApp() {
   const bookingsRepo  = new PostgresBookingsRepo(pool);
   const servicesRepo  = new PostgresServicesRepo(pool);
   const schedulesRepo = new PostgresSchedulesRepo(pool);
+  const galleryRepo   = new PostgresGalleryRepo(pool);
+  const storage       = new SupabaseStorageAdapter(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
   const tokenCrypto   = new TokenCrypto(env.TOKEN_ENCRYPTION_KEY);
   const botApi        = new GrammyBotApiAdapter();
@@ -110,6 +121,10 @@ export function buildApp() {
   const getAvailableSlots  = new GetAvailableSlotsUseCase(schedulesRepo, servicesRepo);
   const connectBot         = new ConnectBotUseCase(mastersRepo, botApi, tokenCrypto, env.PLATFORM_URL);
   const disconnectBot      = new DisconnectBotUseCase(mastersRepo, botApi, tokenCrypto, botManager);
+  const getCalendarView    = new GetCalendarViewUseCase(schedulesRepo);
+  const uploadGalleryPhoto = new UploadGalleryPhotoUseCase(galleryRepo, storage);
+  const deleteGalleryPhoto = new DeleteGalleryPhotoUseCase(galleryRepo, storage);
+  const updateTheme        = new UpdateThemeUseCase(mastersRepo);
 
   // ─── Routes ────────────────────────────────────────────────
   app.register(makeCatalogRoutes({ getMasters, getMasterById, getAvailableSlots }), {
@@ -126,6 +141,18 @@ export function buildApp() {
 
   app.register(makeScheduleRoutes({ getSchedule, upsertSchedule, getOverrides, upsertOverride, deleteOverride, mastersRepo }), {
     prefix: '/api/v1/me/schedule',
+  });
+
+  app.register(makeCalendarRoutes({ getCalendarView, upsertOverride, deleteOverride, mastersRepo }), {
+    prefix: '/api/v1/me/calendar',
+  });
+
+  app.register(makeGalleryRoutes({ uploadGalleryPhoto, deleteGalleryPhoto, galleryRepo, mastersRepo }), {
+    prefix: '/api/v1/me/gallery',
+  });
+
+  app.register(makeThemeRoutes({ updateTheme, mastersRepo }), {
+    prefix: '/api/v1/me/theme',
   });
 
   app.register(makeBotRoutes({ connectBot, disconnectBot, mastersRepo }), {
@@ -146,6 +173,9 @@ export function buildApp() {
     if (
       url.startsWith('/api/v1/me/services') ||
       url.startsWith('/api/v1/me/schedule') ||
+      url.startsWith('/api/v1/me/calendar') ||
+      url.startsWith('/api/v1/me/gallery') ||
+      url.startsWith('/api/v1/me/theme') ||
       url.startsWith('/api/v1/me/bot') ||
       url.startsWith('/api/v1/me/subscription')
     ) {
@@ -170,6 +200,10 @@ export function buildApp() {
     SERVICE_LIMIT_REACHED:        422,
     INVALID_SCHEDULE_TIME:        422,
     OVERRIDE_NOT_FOUND:           404,
+    PHOTO_NOT_FOUND:              404,
+    INVALID_FILE_TYPE:            422,
+    FILE_TOO_LARGE:               413,
+    STORAGE_NOT_CONFIGURED:       503,
   };
 
   app.setErrorHandler(async (err: FastifyError | Error, _req, reply) => {

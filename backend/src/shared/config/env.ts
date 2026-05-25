@@ -10,7 +10,9 @@ const envSchema = z.object({
   NODE_ENV:               z.enum(['development', 'production', 'test']).default('development'),
   PORT:                   z.string().regex(/^\d+$/).optional(),
   HOST:                   z.string().optional(),
-  ALLOWED_ORIGINS:        z.string().optional(),
+  ALLOWED_ORIGINS:             z.string().optional(),
+  SUPABASE_URL:                z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY:   z.string().min(1).optional(),
 });
 
 const result = envSchema.safeParse(process.env);

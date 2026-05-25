@@ -64,6 +64,7 @@ function makeMocks(overrides?: {
     findExpiredTrials:   vi.fn(),
     findExpiringTrials:  vi.fn(),
     updatePlan:          vi.fn(),
+    updateTheme:         vi.fn(),
   };
   const eventBus: IEventBus = {
     publish:   vi.fn().mockResolvedValue(undefined),

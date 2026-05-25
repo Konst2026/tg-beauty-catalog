@@ -1,4 +1,4 @@
-import type { Master, MasterWithServices, UpdateMasterInput, MasterBotCredentials, BotUpdateData } from '@/domain/master/master.entity';
+import type { Master, MasterWithServices, UpdateMasterInput, UpdateThemeInput, MasterBotCredentials, BotUpdateData } from '@/domain/master/master.entity';
 
 export interface GetMastersFilter {
   category_id?:    string;
@@ -17,4 +17,5 @@ export interface IMasterRepository {
   findExpiredTrials(): Promise<Master[]>;
   findExpiringTrials(daysUntil: number): Promise<Master[]>;
   updatePlan(masterId: string, plan: Master['plan'], paidUntil?: Date): Promise<void>;
+  updateTheme(masterId: string, input: UpdateThemeInput): Promise<void>;
 }

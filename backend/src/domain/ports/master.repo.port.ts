@@ -1,4 +1,4 @@
-import type { Master, MasterWithServices, UpdateMasterInput } from '@/domain/master/master.entity';
+import type { Master, MasterWithServices, UpdateMasterInput, MasterBotCredentials, BotUpdateData } from '@/domain/master/master.entity';
 
 export interface GetMastersFilter {
   category_id?:    string;
@@ -10,5 +10,8 @@ export interface IMasterRepository {
   findAll(filter?: GetMastersFilter): Promise<Master[]>;
   findById(id: string): Promise<MasterWithServices | null>;
   findByTelegramId(telegramId: number): Promise<Master | null>;
+  findByTokenHash(tokenHash: string): Promise<Master | null>;
+  findBotCredentials(masterId: string): Promise<MasterBotCredentials | null>;
   upsert(telegramId: number, data: UpdateMasterInput): Promise<Master>;
+  updateBotInfo(masterId: string, data: BotUpdateData): Promise<void>;
 }

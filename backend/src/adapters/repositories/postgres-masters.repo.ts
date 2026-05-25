@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { Master, MasterWithServices, UpdateMasterInput } from '@/domain/master/master.entity';
+import type { Master, MasterWithServices, UpdateMasterInput, MasterBotCredentials, BotUpdateData } from '@/domain/master/master.entity';
 import type { IMasterRepository, GetMastersFilter } from '@/domain/ports/master.repo.port';
 
 export class PostgresMastersRepo implements IMasterRepository {
@@ -62,6 +62,36 @@ export class PostgresMastersRepo implements IMasterRepository {
       [telegramId],
     );
     return rows[0] ?? null;
+  }
+
+  async findByTokenHash(tokenHash: string): Promise<Master | null> {
+    const { rows } = await this.pool.query<Master>(
+      `SELECT id, telegram_id, username, full_name, bio, specialty, category_id, city,
+              avatar_url, promo_text, available_today, rating, review_count, bot_username,
+              bot_token_hash, bot_webhook_secret, plan, is_published, created_at, updated_at
+       FROM masters WHERE bot_token_hash = $1`,
+      [tokenHash],
+    );
+    return rows[0] ?? null;
+  }
+
+  async findBotCredentials(masterId: string): Promise<MasterBotCredentials | null> {
+    const { rows } = await this.pool.query<MasterBotCredentials>(
+      'SELECT id, bot_token FROM masters WHERE id = $1',
+      [masterId],
+    );
+    return rows[0] ?? null;
+  }
+
+  async updateBotInfo(masterId: string, data: BotUpdateData): Promise<void> {
+    const keys  = Object.keys(data) as (keyof BotUpdateData)[];
+    if (keys.length === 0) return;
+    const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const values: unknown[] = [masterId, ...keys.map(k => data[k])];
+    await this.pool.query(
+      `UPDATE masters SET ${setClauses}, updated_at = now() WHERE id = $1`,
+      values,
+    );
   }
 
   async upsert(telegramId: number, data: UpdateMasterInput): Promise<Master> {

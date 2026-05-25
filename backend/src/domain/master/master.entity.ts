@@ -13,10 +13,24 @@ export interface Master {
   rating: number;
   review_count: number;
   bot_username: string | null;
+  bot_token_hash: string | null;
+  bot_webhook_secret: string | null;
   plan: 'trial' | 'active' | 'expired';
   is_published: boolean;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface MasterBotCredentials {
+  id: string;
+  bot_token: string | null;
+}
+
+export interface BotUpdateData {
+  bot_token?: string | null;
+  bot_token_hash?: string | null;
+  bot_username?: string | null;
+  bot_webhook_secret?: string | null;
 }
 
 export interface ServicePreview {

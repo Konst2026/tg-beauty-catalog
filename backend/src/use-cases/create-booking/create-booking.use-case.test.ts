@@ -50,10 +50,13 @@ function makeMockRepos(overrides?: {
     cancelByClient:          vi.fn(),
   };
   const masterRepo: IMasterRepository = {
-    findById:          vi.fn().mockResolvedValue(masterResult),
-    findAll:           vi.fn(),
-    findByTelegramId:  vi.fn(),
-    upsert:            vi.fn(),
+    findById:           vi.fn().mockResolvedValue(masterResult),
+    findAll:            vi.fn(),
+    findByTelegramId:   vi.fn(),
+    findByTokenHash:    vi.fn(),
+    findBotCredentials: vi.fn(),
+    upsert:             vi.fn(),
+    updateBotInfo:      vi.fn(),
   };
   return { bookingRepo, masterRepo };
 }

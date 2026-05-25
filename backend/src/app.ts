@@ -24,10 +24,17 @@ import { GetOverridesUseCase }    from '@/use-cases/get-overrides/get-overrides.
 import { UpsertOverrideUseCase }  from '@/use-cases/upsert-override/upsert-override.use-case';
 import { DeleteOverrideUseCase }  from '@/use-cases/delete-override/delete-override.use-case';
 import { GetAvailableSlotsUseCase } from '@/use-cases/get-available-slots/get-available-slots.use-case';
+import { ConnectBotUseCase }      from '@/use-cases/connect-bot/connect-bot.use-case';
+import { DisconnectBotUseCase }   from '@/use-cases/disconnect-bot/disconnect-bot.use-case';
 import { makeCatalogRoutes }      from '@/adapters/http/catalog/catalog.controller';
 import { makeBookingsRoutes }     from '@/adapters/http/bookings/bookings.controller';
 import { makeServicesRoutes }     from '@/adapters/http/services/services.controller';
 import { makeScheduleRoutes }     from '@/adapters/http/schedule/schedule.controller';
+import { makeBotRoutes }          from '@/adapters/http/bot/bot.controller';
+import { makeWebhookRoutes }      from '@/adapters/http/webhook/webhook.controller';
+import { GrammyBotApiAdapter }    from '@/infrastructure/telegram/grammy-bot-api.adapter';
+import { BotManager }             from '@/infrastructure/telegram/bot-manager';
+import { TokenCrypto }            from '@/shared/lib/token-crypto';
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -48,6 +55,10 @@ export function buildApp() {
   const servicesRepo  = new PostgresServicesRepo(pool);
   const schedulesRepo = new PostgresSchedulesRepo(pool);
 
+  const tokenCrypto   = new TokenCrypto(env.TOKEN_ENCRYPTION_KEY);
+  const botApi        = new GrammyBotApiAdapter();
+  const botManager    = new BotManager(mastersRepo, tokenCrypto, env.MINI_APP_URL);
+
   const getMasters         = new GetMastersUseCase(mastersRepo);
   const getMasterById      = new GetMasterByIdUseCase(mastersRepo);
   const createBooking      = new CreateBookingUseCase(bookingsRepo, mastersRepo);
@@ -63,6 +74,8 @@ export function buildApp() {
   const upsertOverride     = new UpsertOverrideUseCase(schedulesRepo);
   const deleteOverride     = new DeleteOverrideUseCase(schedulesRepo);
   const getAvailableSlots  = new GetAvailableSlotsUseCase(schedulesRepo, servicesRepo);
+  const connectBot         = new ConnectBotUseCase(mastersRepo, botApi, tokenCrypto, env.PLATFORM_URL);
+  const disconnectBot      = new DisconnectBotUseCase(mastersRepo, botApi, tokenCrypto, botManager);
 
   // ─── Routes ────────────────────────────────────────────────
   app.register(makeCatalogRoutes({ getMasters, getMasterById, getAvailableSlots }), {
@@ -79,6 +92,14 @@ export function buildApp() {
 
   app.register(makeScheduleRoutes({ getSchedule, upsertSchedule, getOverrides, upsertOverride, deleteOverride, mastersRepo }), {
     prefix: '/api/v1/me/schedule',
+  });
+
+  app.register(makeBotRoutes({ connectBot, disconnectBot, mastersRepo }), {
+    prefix: '/api/v1/me/bot',
+  });
+
+  app.register(makeWebhookRoutes({ mastersRepo, botManager }), {
+    prefix: '/webhook',
   });
 
   app.get('/health', { config: { rateLimit: false } }, async () => ({

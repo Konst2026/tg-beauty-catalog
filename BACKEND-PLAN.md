@@ -1071,9 +1071,13 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 [x] GET /api/v1/catalog/masters/:id/slots?date=YYYY-MM-DD&service_id= (override > weekly template)
 [ ] GET /api/v1/me/calendar?from=&to= (агрегация schedule + overrides + bookings)
 [ ] POST /api/v1/me/calendar/block, DELETE /api/v1/me/calendar/block/:id
-[ ] Bot connect: POST /api/v1/me/bot/connect → getMe → setWebhook
-[ ] Webhook dispatcher /webhook/tg/:token_hash (multi-bot)
-[ ] Grammy bot: /start → открыть Mini App
+[x] Bot connect: POST /api/v1/me/bot/connect → getMe → setWebhook (AES-256-GCM encrypt token)
+[x] DELETE /api/v1/me/bot/disconnect → deleteWebhook + clear DB
+[x] Webhook dispatcher /webhook/tg/:token_hash (multi-bot, verify X-Telegram-Bot-Api-Secret-Token)
+[x] Grammy BotManager: TTL-30min LRU cache of bot instances per master
+[x] Grammy bot: /start → открыть Mini App (inline keyboard web_app button)
+[x] TokenCrypto: shared/lib/token-crypto.ts (AES-256-GCM, env: TOKEN_ENCRYPTION_KEY)
+[x] New env vars: PLATFORM_URL, TOKEN_ENCRYPTION_KEY, MINI_APP_URL
 [ ] Notifications: booking_confirmed, reminder_24h, reminder_2h (BullMQ + Redis)
 [ ] Trial plan: 2 месяца, cron для expired
 [ ] Gallery upload (Supabase Storage — bucket beautybook-media)

@@ -663,7 +663,23 @@ export interface IMasterRepository {
   findAll(filter?: GetMastersFilter): Promise<Master[]>;
   findById(id: string): Promise<MasterWithServices | null>;
   findByTelegramId(telegramId: number): Promise<Master | null>;
+  findByTokenHash(tokenHash: string): Promise<Master | null>;
+  findBotCredentials(masterId: string): Promise<MasterBotCredentials | null>;
   upsert(telegramId: number, data: UpdateMasterInput): Promise<Master>;
+  updateBotInfo(masterId: string, data: BotUpdateData): Promise<void>;
+}
+
+// src/domain/ports/telegram-bot-api.port.ts
+export interface ITelegramBotApiPort {
+  getMe(token: string): Promise<BotInfo>;
+  setWebhook(token: string, url: string, secretToken: string): Promise<void>;
+  deleteWebhook(token: string): Promise<void>;
+}
+
+// src/domain/ports/bot-manager.port.ts
+export interface IBotManager {
+  handleUpdate(masterId: string, update: unknown): Promise<void>;
+  invalidateBot(masterId: string): void;
 }
 
 // src/domain/ports/service.repo.port.ts
@@ -690,7 +706,7 @@ export function calculateSlots(input: SlotInput): Slot[]
 // SlotInput: { date, workStart, workEnd, durationMin, bookedRanges }
 // Итерирует слоты по durationMin, пропускает пересечения с bookedRanges
 
-// Планируются (Этап 1 — Bot + Notifications):
+// Планируются (Этап 1 — Notifications):
 // src/domain/ports/notification.port.ts — INotificationPort
 // src/domain/ports/file-storage.port.ts — IFileStoragePort
 // src/domain/ports/event-bus.port.ts    — IEventBus
@@ -824,6 +840,11 @@ const bookingsRepo  = new PostgresBookingsRepo(pool);
 const servicesRepo  = new PostgresServicesRepo(pool);
 const schedulesRepo = new PostgresSchedulesRepo(pool);
 
+// ── Infrastructure services ─────────────────────────────────────────────
+const tokenCrypto = new TokenCrypto(env.TOKEN_ENCRYPTION_KEY);   // AES-256-GCM
+const botApi      = new GrammyBotApiAdapter();                    // ITelegramBotApiPort
+const botManager  = new BotManager(mastersRepo, tokenCrypto, env.MINI_APP_URL); // IBotManager
+
 // ── Use Cases — получают интерфейсы ────────────────────────────────────
 const getMasters        = new GetMastersUseCase(mastersRepo);
 const getMasterById     = new GetMasterByIdUseCase(mastersRepo);
@@ -840,6 +861,8 @@ const getOverrides      = new GetOverridesUseCase(schedulesRepo);
 const upsertOverride    = new UpsertOverrideUseCase(schedulesRepo);
 const deleteOverride    = new DeleteOverrideUseCase(schedulesRepo);
 const getAvailableSlots = new GetAvailableSlotsUseCase(schedulesRepo, servicesRepo);
+const connectBot        = new ConnectBotUseCase(mastersRepo, botApi, tokenCrypto, env.PLATFORM_URL);
+const disconnectBot     = new DisconnectBotUseCase(mastersRepo, botApi, tokenCrypto, botManager);
 
 // ── Routes — получают Use Cases через deps, не импортируют Infrastructure
 app.register(makeCatalogRoutes({ getMasters, getMasterById, getAvailableSlots }),
@@ -850,6 +873,10 @@ app.register(makeServicesRoutes({ getServices, createService, updateService, del
              { prefix: '/api/v1/me/services' });
 app.register(makeScheduleRoutes({ getSchedule, upsertSchedule, getOverrides, upsertOverride, deleteOverride, mastersRepo }),
              { prefix: '/api/v1/me/schedule' });
+app.register(makeBotRoutes({ connectBot, disconnectBot, mastersRepo }),
+             { prefix: '/api/v1/me/bot' });
+app.register(makeWebhookRoutes({ mastersRepo, botManager }),
+             { prefix: '/webhook' });
 ```
 
 **Итог:** Controllers видят только Use Case-интерфейсы. Замена PostgreSQL → другой БД затрагивает только `adapters/repositories/` + строки в `app.ts`.

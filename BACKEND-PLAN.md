@@ -1083,7 +1083,7 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
     - BookingCreated/BookingCancelled domain events
     - BullMQ queue+worker, delayed jobs with jobId for cancellation
     - Railway: Redis service (redis:7-alpine) provisioned, REDIS_URL set via private networking
-[ ] Trial plan: 2 месяца, cron для expired
+[x] Trial plan: 2 месяца, cron для expired
 [ ] Gallery upload (Supabase Storage — bucket beautybook-media)
 [ ] Theme config (color, logo)
 [x] Деплой на Railway → https://backend-production-ed11d.up.railway.app

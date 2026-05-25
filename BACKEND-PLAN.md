@@ -1048,25 +1048,37 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 **Цель:** мастер подключает бота, клиенты записываются через Mini App.
 
 ```
-[ ] Создать проект в Supabase, включить расширения btree_gist + pgcrypto
-[ ] Применить миграцию 001_initial.sql через DATABASE_DIRECT_URL
-[ ] Master CRUD + auth через initData
-[ ] Services CRUD
+[x] Создать проект в Supabase, включить расширения btree_gist + pgcrypto
+[x] Применить миграции 001_initial.sql, 002_rls.sql, 003_bot_token_hash.sql
+[x] GET /api/v1/catalog/masters (фильтры: category_id, city, available_today)
+[x] GET /api/v1/catalog/masters/:id
+[x] POST /api/v1/bookings (EXCLUDE GIST — защита от двойного бронирования)
+[x] GET /api/v1/bookings/mine (по client_telegram_id из initData)
+[x] DELETE /api/v1/bookings/:id (отмена)
+[x] Telegram initData HMAC верификация на каждый запрос (X-Init-Data header)
+[x] Zod-валидация: body, query, params на всех эндпоинтах
+[x] Global error handler: DomainError → HTTP map, 23P01 → 409, 500 fallback
+[x] Rate limiting: глобально 100/мин, POST /bookings — 10/мин
+[x] Env vars validation (Zod) при старте: DATABASE_URL, BOT_TOKEN обязательны
+[x] CORS через ALLOWED_ORIGINS env var
+[x] Dockerfile + railway.toml (деплой на Railway, healthcheck /health)
+[x] 13 unit-тестов (Vitest): create-booking × 4, cancel-booking × 3, telegram-auth × 6
+[x] TypeScript strict + ESLint: 0 ошибок
+
+[ ] Services CRUD (GET/POST/PUT/DELETE /api/v1/me/services)
 [ ] Schedule CRUD (weekly template + overrides)
-[ ] Slot calculator (чистая функция, domain/services/)
-[ ] GET /catalog, GET /masters/:id, GET /masters/:id/slots
-[ ] POST /bookings с pending-статусом (EXCLUDE GIST для pending + confirmed)
-[ ] Cron: DELETE pending bookings WHERE expires_at < now() (каждые 5 мин)
-[ ] GET /my/bookings, POST /bookings/:id/cancel
-[ ] GET /me/calendar?from=&to= (агрегация schedule + overrides + bookings)
-[ ] POST /me/calendar/block, DELETE /me/calendar/block/:id
-[ ] Bot connect: POST /me/bot/connect → getMe → setWebhook
-[ ] Webhook dispatcher /webhook/tg/:token_hash
+[ ] Slot calculator (чистая функция, domain/services/slot-calculator.ts)
+[ ] GET /api/v1/masters/:id/slots?date=YYYY-MM-DD&service_id=
+[ ] GET /api/v1/me/calendar?from=&to= (агрегация schedule + overrides + bookings)
+[ ] POST /api/v1/me/calendar/block, DELETE /api/v1/me/calendar/block/:id
+[ ] Bot connect: POST /api/v1/me/bot/connect → getMe → setWebhook
+[ ] Webhook dispatcher /webhook/tg/:token_hash (multi-bot)
 [ ] Grammy bot: /start → открыть Mini App
-[ ] Notifications: booking_confirmed, reminder_24h, reminder_2h (BullMQ)
+[ ] Notifications: booking_confirmed, reminder_24h, reminder_2h (BullMQ + Redis)
 [ ] Trial plan: 2 месяца, cron для expired
 [ ] Gallery upload (Supabase Storage — bucket beautybook-media)
 [ ] Theme config (color, logo)
+[ ] Деплой на Railway (нужен: BOT_TOKEN, DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 ```
 
 ### Этап 2 — AI (2 недели)

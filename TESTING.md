@@ -1,11 +1,261 @@
 # TESTING.md — BeautyBook QA Guide
 
 > Руководство для внешнего тестировщика. Читается один раз — без вопросов к команде.  
-> Версия: 2026-05-23 | QA-инженер: составлено по реальному коду проекта.
+> Версия: 2026-05-25 | Обновлено: добавлен раздел Backend API (Node.js).
 
 ---
 
-## 1. Что тестируем
+## ЧАСТЬ A: Backend API (Node.js + Fastify)
+
+### A1. Что тестируем
+
+**BeautyBook Backend** — REST API на Fastify 5 + TypeScript + PostgreSQL (Supabase).
+
+**Реализованные эндпоинты (v0.1):**
+
+| Метод | URL | Авторизация | Описание |
+|---|---|---|---|
+| `GET` | `/health` | нет | Проверка работоспособности сервера |
+| `GET` | `/api/v1/catalog/masters` | нет | Каталог мастеров (фильтры: category_id, city, available_today) |
+| `GET` | `/api/v1/catalog/masters/:id` | нет | Профиль мастера по UUID |
+| `POST` | `/api/v1/bookings` | `X-Init-Data` | Создать запись |
+| `GET` | `/api/v1/bookings/mine` | `X-Init-Data` | Мои записи (по Telegram ID) |
+| `DELETE` | `/api/v1/bookings/:id` | `X-Init-Data` | Отменить запись |
+
+**Авторизация:** заголовок `X-Init-Data` с Telegram initData (HMAC-SHA256 с BOT_TOKEN).
+
+---
+
+### A2. Запуск backend локально
+
+```bash
+cd tg-beauty-catalog/backend
+
+# Установить зависимости (если не установлены)
+npm install
+
+# Создать .env из примера и заполнить
+cp .env.example .env
+# Заполнить: DATABASE_URL, BOT_TOKEN (обязательны)
+
+# Запустить dev-сервер
+npm run dev
+# Сервер стартует на http://localhost:3000
+```
+
+При отсутствии `DATABASE_URL` или `BOT_TOKEN` сервер не запустится и выдаст:
+```
+Missing or invalid environment variables:
+  DATABASE_URL: DATABASE_URL is required
+```
+
+---
+
+### A3. Автоматические тесты
+
+```bash
+cd backend
+npm test
+```
+
+Ожидаемый результат: **13/13 passed** (3 test files):
+- `telegram-auth.test.ts` — 6 тестов HMAC верификации
+- `create-booking.use-case.test.ts` — 4 теста бизнес-логики
+- `cancel-booking.use-case.test.ts` — 3 теста отмены
+
+```bash
+npm run lint   # TypeScript strict + ESLint — должно быть 0 ошибок
+npm run build  # Сборка dist/ — должно пройти без ошибок
+```
+
+---
+
+### A4. Тест-план: публичные эндпоинты (без авторизации)
+
+#### TC-B01 Health check
+
+```bash
+curl http://localhost:3000/health
+```
+
+**Ожидаемый результат:** HTTP 200
+```json
+{ "status": "ok", "ts": "2026-05-25T..." }
+```
+
+---
+
+#### TC-B02 Каталог мастеров — базовый запрос
+
+```bash
+curl "http://localhost:3000/api/v1/catalog/masters"
+```
+
+**Ожидаемый результат:** HTTP 200, массив мастеров:
+```json
+{ "masters": [...] }
+```
+
+---
+
+#### TC-B03 Каталог — фильтрация
+
+```bash
+# Фильтр по городу
+curl "http://localhost:3000/api/v1/catalog/masters?city=Москва"
+
+# Только доступные сегодня
+curl "http://localhost:3000/api/v1/catalog/masters?available_today=true"
+
+# Невалидный category_id — должен вернуть 400
+curl "http://localhost:3000/api/v1/catalog/masters?category_id=not-a-uuid"
+```
+
+**Ожидаемый результат последнего:** HTTP 400
+```json
+{ "error": { "fieldErrors": { "category_id": ["Invalid uuid"] } } }
+```
+
+---
+
+#### TC-B04 Профиль мастера
+
+```bash
+# Заменить на реальный UUID из каталога
+curl "http://localhost:3000/api/v1/catalog/masters/00000000-0000-0000-0000-000000000001"
+
+# Невалидный UUID — должен вернуть 400
+curl "http://localhost:3000/api/v1/catalog/masters/not-a-uuid"
+
+# Несуществующий UUID — должен вернуть 404
+curl "http://localhost:3000/api/v1/catalog/masters/00000000-0000-0000-0000-000000000000"
+```
+
+| Запрос | Ожидаемый статус |
+|---|---|
+| Валидный UUID, мастер существует | 200 |
+| Невалидный UUID | 400 |
+| Валидный UUID, мастера нет | 404 |
+
+---
+
+### A5. Тест-план: авторизованные эндпоинты
+
+> **Важно:** эти эндпоинты требуют реального `initData` от Telegram. Для тестирования без Telegram используйте скрипт генерации тестовых данных ниже.
+
+#### Генерация тестового X-Init-Data (Node.js)
+
+```javascript
+const { createHmac } = require('crypto');
+
+const BOT_TOKEN = 'ваш_токен_бота';
+const userId = 123456789;
+
+const user = JSON.stringify({ id: userId, first_name: 'Test', username: 'testuser' });
+const authDate = Math.floor(Date.now() / 1000);
+const dataCheckString = `auth_date=${authDate}\nuser=${user}`;
+
+const secretKey = createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+const hash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+const initData = `auth_date=${authDate}&user=${encodeURIComponent(user)}&hash=${hash}`;
+console.log(initData);
+```
+
+---
+
+#### TC-B05 Создание записи
+
+```bash
+curl -X POST http://localhost:3000/api/v1/bookings \
+  -H "Content-Type: application/json" \
+  -H "X-Init-Data: <сгенерированный_init_data>" \
+  -d '{
+    "master_id": "<uuid мастера>",
+    "service_id": "<uuid услуги>",
+    "client_name": "Алина Петрова",
+    "start_time": "2026-06-01T10:00:00Z",
+    "end_time": "2026-06-01T11:00:00Z",
+    "price_snapshot": 1500
+  }'
+```
+
+| Сценарий | Ожидаемый статус |
+|---|---|
+| Корректные данные | 201, `{ "booking": {...} }` |
+| Без X-Init-Data | 401 |
+| Слот уже занят | 409 `SLOT_TAKEN` |
+| Мастер не найден | 404 `MASTER_NOT_FOUND` |
+| Мастер не опубликован | 422 `MASTER_UNAVAILABLE` |
+| Невалидный UUID в master_id | 400 |
+| Превышен лимит запросов (>10/мин) | 429 |
+
+---
+
+#### TC-B06 Мои записи
+
+```bash
+curl http://localhost:3000/api/v1/bookings/mine \
+  -H "X-Init-Data: <init_data>"
+```
+
+**Ожидаемый результат:** HTTP 200, массив записей клиента:
+```json
+{ "bookings": [...] }
+```
+
+---
+
+#### TC-B07 Отмена записи
+
+```bash
+curl -X DELETE http://localhost:3000/api/v1/bookings/<booking_uuid> \
+  -H "X-Init-Data: <init_data>"
+```
+
+| Сценарий | Ожидаемый статус |
+|---|---|
+| Своя запись | 200, `{ "booking": { "status": "cancelled" } }` |
+| Чужая запись / не найдена | 404 |
+| Невалидный UUID | 400 |
+
+---
+
+### A6. Rate limiting
+
+```bash
+# Запустить 11 раз подряд POST /bookings — 11-й должен вернуть 429
+for i in {1..11}; do
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3000/api/v1/bookings \
+    -H "X-Init-Data: test" -H "Content-Type: application/json" -d '{}'
+done
+# Ожидаемый вывод: 401 401 401 ... 429 (первые 10 — 401 из-за невалидного initData, 11-й — 429)
+```
+
+---
+
+### A7. Регрессионный чеклист Backend
+
+Выполнять после каждого изменения кода. < 5 минут.
+
+```
+[ ] npm test — 13/13 passed
+[ ] npm run lint — 0 ошибок
+[ ] npm run build — чистая сборка
+[ ] GET /health → 200
+[ ] GET /api/v1/catalog/masters → 200 с массивом
+[ ] GET /api/v1/catalog/masters/invalid-uuid → 400
+[ ] POST /api/v1/bookings без X-Init-Data → 401
+[ ] DELETE /api/v1/bookings/invalid-uuid с X-Init-Data → 400
+```
+
+---
+
+---
+
+## ЧАСТЬ B: Frontend Vanilla JS (tg-app/)
+
+### 1. Что тестируем
 
 **BeautyBook** — Telegram Mini App (TMA): маркетплейс бьюти-мастеров.
 

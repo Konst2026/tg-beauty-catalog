@@ -1154,129 +1154,107 @@ BullMQ `concurrency: 5` + `limiter: { max: 25, duration: 1000 }` — безоп�
 
 ### Backend
 
+#### Реализовано (MVP v0.1 — коммит 7d06601)
+
 ```
 backend/
 ├── src/
-│   │
 │   ├── domain/                        # DOMAIN — ядро, нет внешних зависимостей
 │   │   ├── booking/
-│   │   │   ├── booking.entity.ts      # Booking, BookingStatus value object
-│   │   │   └── booking.events.ts      # BookingConfirmed, BookingCancelled...
+│   │   │   └── booking.entity.ts      # Booking entity + типы
 │   │   ├── master/
 │   │   │   └── master.entity.ts
-│   │   ├── service/
-│   │   │   └── service.entity.ts
-│   │   ├── client/
-│   │   │   └── client.entity.ts
-│   │   ├── review/
-│   │   │   └── review.entity.ts
-│   │   ├── services/                  # Domain Services (чистые функции)
-│   │   │   └── slot-calculator.ts     # generateAvailableSlots() — нет I/O
 │   │   └── ports/                     # Port-интерфейсы (контракты)
 │   │       ├── booking.repo.port.ts   # IBookingRepository
-│   │       ├── master.repo.port.ts    # IMasterRepository
-│   │       ├── notification.port.ts   # INotificationPort
-│   │       ├── file-storage.port.ts   # IFileStoragePort
-│   │       └── event-bus.port.ts      # IEventBus
+│   │       └── master.repo.port.ts    # IMasterRepository
 │   │
 │   ├── use-cases/                     # USE CASES — оркестрация через Ports
 │   │   ├── create-booking/
 │   │   │   ├── create-booking.use-case.ts
-│   │   │   └── create-booking.types.ts
+│   │   │   └── create-booking.use-case.test.ts   # 4 unit-теста
 │   │   ├── cancel-booking/
-│   │   │   └── cancel-booking.use-case.ts
-│   │   ├── confirm-booking/
-│   │   │   └── confirm-booking.use-case.ts
-│   │   ├── get-available-slots/
-│   │   │   └── get-available-slots.use-case.ts
-│   │   ├── reschedule-booking/
-│   │   │   └── reschedule-booking.use-case.ts
-│   │   ├── manage-service/
-│   │   │   ├── create-service.use-case.ts
-│   │   │   └── update-service.use-case.ts
-│   │   └── manage-schedule/
-│   │       └── update-schedule.use-case.ts
+│   │   │   ├── cancel-booking.use-case.ts
+│   │   │   └── cancel-booking.use-case.test.ts   # 3 unit-теста
+│   │   ├── get-master-by-id/
+│   │   │   └── get-master-by-id.use-case.ts
+│   │   ├── get-masters/
+│   │   │   └── get-masters.use-case.ts
+│   │   └── get-my-bookings/
+│   │       └── get-my-bookings.use-case.ts
 │   │
 │   ├── adapters/                      # INTERFACE ADAPTERS — перевод форматов
-│   │   ├── http/                      # HTTP Controllers (Fastify route handlers)
-│   │   │   ├── auth/
-│   │   │   │   ├── auth.controller.ts
-│   │   │   │   ├── auth.routes.ts
-│   │   │   │   └── auth.schema.ts     # Zod валидация
+│   │   ├── http/
 │   │   │   ├── catalog/
-│   │   │   │   ├── catalog.controller.ts
-│   │   │   │   └── catalog.routes.ts
-│   │   │   ├── bookings/
-│   │   │   │   ├── bookings.controller.ts
-│   │   │   │   ├── bookings.routes.ts
-│   │   │   │   └── bookings.schema.ts
-│   │   │   ├── masters/
-│   │   │   │   ├── masters.controller.ts
-│   │   │   │   ├── masters.routes.ts
-│   │   │   │   └── masters.schema.ts
-│   │   │   ├── services/
-│   │   │   │   ├── services.controller.ts
-│   │   │   │   ├── services.routes.ts
-│   │   │   │   └── services.schema.ts
-│   │   │   ├── schedules/
-│   │   │   │   ├── schedules.controller.ts
-│   │   │   │   └── schedules.routes.ts
-│   │   │   ├── reviews/
-│   │   │   │   ├── reviews.controller.ts
-│   │   │   │   └── reviews.routes.ts
-│   │   │   ├── gallery/
-│   │   │   │   ├── gallery.controller.ts
-│   │   │   │   └── gallery.routes.ts
-│   │   │   └── admin/
-│   │   │       ├── admin.controller.ts
-│   │   │       └── admin.routes.ts
-│   │   └── repositories/              # Реализации IRepository портов
-│   │       ├── postgres-booking.repo.ts   # implements IBookingRepository
-│   │       ├── postgres-master.repo.ts    # implements IMasterRepository
-│   │       ├── postgres-service.repo.ts
-│   │       ├── postgres-review.repo.ts
-│   │       └── postgres-gallery.repo.ts
+│   │   │   │   └── catalog.controller.ts   # GET /catalog/masters, GET /catalog/masters/:id
+│   │   │   └── bookings/
+│   │   │       └── bookings.controller.ts  # POST /bookings, GET /bookings/mine, DELETE /:id
+│   │   └── repositories/
+│   │       ├── postgres-masters.repo.ts    # implements IMasterRepository
+│   │       └── postgres-bookings.repo.ts   # implements IBookingRepository
 │   │
-│   ├── infrastructure/                # FRAMEWORKS & DRIVERS — внешние системы
+│   ├── infrastructure/
+│   │   ├── auth/
+│   │   │   └── telegram-auth.ts       # verifyInitData() — HMAC для multi-bot (будущее)
 │   │   ├── postgres/
-│   │   │   ├── pool.ts                # pg Pool singleton
-│   │   │   └── migrations/
-│   │   │       ├── 001_initial.sql
-│   │   │       ├── 002_indexes.sql
-│   │   │       └── 003_rls.sql
-│   │   ├── redis/
-│   │   │   └── client.ts              # Redis client singleton
-│   │   ├── telegram/
-│   │   │   ├── bot.ts                 # Grammy bot instance
-│   │   │   ├── telegram-auth.ts       # verifyInitData() HMAC
-│   │   │   └── notification-adapter.ts  # implements INotificationPort
-│   │   ├── storage/
-│   │   │   └── s3-adapter.ts          # implements IFileStoragePort
-│   │   ├── queue/
-│   │   │   ├── notification.queue.ts  # BullMQ Queue setup
-│   │   │   └── notification.worker.ts # BullMQ Worker
-│   │   └── event-handlers/
-│   │       └── notification.event-handler.ts  # подписчик на Domain Events
+│   │   │   └── pool.ts                # pg Pool singleton (использует env.DATABASE_URL)
+│   │   └── supabase/
+│   │       └── migrations/
+│   │           ├── 001_initial.sql    # основная схема БД
+│   │           ├── 002_rls.sql        # Row Level Security политики
+│   │           └── 003_bot_token_hash.sql  # индекс по bot_token hash
 │   │
-│   └── shared/                        # Утилиты без бизнес-логики
-│       ├── middleware/
-│       │   ├── authenticate.ts        # JWT → req.user
-│       │   ├── rbac.ts                # requireRole(), requireOwner()
-│       │   └── error-handler.ts
+│   └── shared/
+│       ├── config/
+│       │   └── env.ts                 # Zod-валидация DATABASE_URL, BOT_TOKEN при старте
 │       ├── errors/
-│       │   └── app-errors.ts          # NotFoundError, ConflictError, ForbiddenError
-│       ├── types/
-│       │   ├── user.types.ts
-│       │   └── fastify.d.ts           # augments request.user
-│       └── config/
-│           └── env.ts                 # валидация всех env vars через Zod
+│       │   └── domain-error.ts        # DomainError(message, code)
+│       └── lib/
+│           ├── telegram-auth.ts       # verifyInitData() — текущая реализация для Mini App
+│           └── telegram-auth.test.ts  # 6 unit-тестов HMAC верификации
 │
-├── app.ts                             # Fastify instance + регистрация роутов + DI
-├── server.ts                          # только app.listen()
-├── tsconfig.json
+├── app.ts                             # Composition Root: DI + роуты + error handler + rate limit
+├── server.ts                          # dotenv → env validation → app.listen()
+├── migrate.js                         # Применение SQL-миграций через DATABASE_DIRECT_URL
+├── Dockerfile                         # Двухэтапная сборка (builder → prod)
+├── railway.toml                       # Деплой на Railway (healthcheck /health)
+├── .dockerignore
 ├── .env.example
-├── package.json
-└── docker-compose.yml                 # postgres + redis
+├── .gitignore                         # исключает .env, node_modules/, dist/
+├── tsconfig.json
+├── vitest.config.ts
+└── package.json
+```
+
+#### Целевая структура (по мере роста функционала)
+
+Следующие папки появятся при добавлении фич — структура зафиксирована:
+
+```
+src/domain/
+  ├── services/slot-calculator.ts          # Этап 1 — вычисление слотов
+  └── ports/
+      ├── notification.port.ts             # Этап 1 — уведомления
+      ├── event-bus.port.ts                # Этап 1 — Domain Events
+      └── file-storage.port.ts             # Этап 1 — галерея
+
+src/use-cases/
+  ├── get-available-slots/                 # Этап 1
+  ├── manage-service/                      # Этап 1
+  ├── handle-ai-message/                   # Этап 2
+  └── manage-subscription/                 # Этап 4
+
+src/infrastructure/
+  ├── telegram/
+  │   ├── bot-manager.ts                   # Этап 1 — multi-bot registry
+  │   └── notification-adapter.ts          # Этап 1 — implements INotificationPort
+  ├── redis/client.ts                      # Этап 1 — BullMQ + кэш слотов
+  ├── queue/
+  │   ├── notification.queue.ts
+  │   └── notification.worker.ts
+  ├── event-handlers/
+  │   └── notification.event-handler.ts
+  └── supabase/
+      └── storage.adapter.ts               # Этап 1 — галерея
 ```
 
 ### Frontend

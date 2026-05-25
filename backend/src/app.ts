@@ -8,6 +8,7 @@ import { pool }                   from '@/infrastructure/postgres/pool';
 import { PostgresMastersRepo }    from '@/adapters/repositories/postgres-masters.repo';
 import { PostgresBookingsRepo }   from '@/adapters/repositories/postgres-bookings.repo';
 import { PostgresServicesRepo }   from '@/adapters/repositories/postgres-services.repo';
+import { PostgresSchedulesRepo }  from '@/adapters/repositories/postgres-schedules.repo';
 import { GetMastersUseCase }      from '@/use-cases/get-masters/get-masters.use-case';
 import { GetMasterByIdUseCase }   from '@/use-cases/get-master-by-id/get-master-by-id.use-case';
 import { CreateBookingUseCase }   from '@/use-cases/create-booking/create-booking.use-case';
@@ -17,9 +18,16 @@ import { GetServicesUseCase }     from '@/use-cases/get-services/get-services.us
 import { CreateServiceUseCase }   from '@/use-cases/create-service/create-service.use-case';
 import { UpdateServiceUseCase }   from '@/use-cases/update-service/update-service.use-case';
 import { DeleteServiceUseCase }   from '@/use-cases/delete-service/delete-service.use-case';
+import { GetScheduleUseCase }     from '@/use-cases/get-schedule/get-schedule.use-case';
+import { UpsertScheduleUseCase }  from '@/use-cases/upsert-schedule/upsert-schedule.use-case';
+import { GetOverridesUseCase }    from '@/use-cases/get-overrides/get-overrides.use-case';
+import { UpsertOverrideUseCase }  from '@/use-cases/upsert-override/upsert-override.use-case';
+import { DeleteOverrideUseCase }  from '@/use-cases/delete-override/delete-override.use-case';
+import { GetAvailableSlotsUseCase } from '@/use-cases/get-available-slots/get-available-slots.use-case';
 import { makeCatalogRoutes }      from '@/adapters/http/catalog/catalog.controller';
 import { makeBookingsRoutes }     from '@/adapters/http/bookings/bookings.controller';
 import { makeServicesRoutes }     from '@/adapters/http/services/services.controller';
+import { makeScheduleRoutes }     from '@/adapters/http/schedule/schedule.controller';
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -35,22 +43,29 @@ export function buildApp() {
   });
 
   // ─── Composition Root ──────────────────────────────────────
-  const mastersRepo  = new PostgresMastersRepo(pool);
-  const bookingsRepo = new PostgresBookingsRepo(pool);
-  const servicesRepo = new PostgresServicesRepo(pool);
+  const mastersRepo   = new PostgresMastersRepo(pool);
+  const bookingsRepo  = new PostgresBookingsRepo(pool);
+  const servicesRepo  = new PostgresServicesRepo(pool);
+  const schedulesRepo = new PostgresSchedulesRepo(pool);
 
-  const getMasters    = new GetMastersUseCase(mastersRepo);
-  const getMasterById = new GetMasterByIdUseCase(mastersRepo);
-  const createBooking = new CreateBookingUseCase(bookingsRepo, mastersRepo);
-  const getMyBookings = new GetMyBookingsUseCase(bookingsRepo);
-  const cancelBooking = new CancelBookingUseCase(bookingsRepo);
-  const getServices   = new GetServicesUseCase(servicesRepo);
-  const createService = new CreateServiceUseCase(servicesRepo);
-  const updateService = new UpdateServiceUseCase(servicesRepo);
-  const deleteService = new DeleteServiceUseCase(servicesRepo);
+  const getMasters         = new GetMastersUseCase(mastersRepo);
+  const getMasterById      = new GetMasterByIdUseCase(mastersRepo);
+  const createBooking      = new CreateBookingUseCase(bookingsRepo, mastersRepo);
+  const getMyBookings      = new GetMyBookingsUseCase(bookingsRepo);
+  const cancelBooking      = new CancelBookingUseCase(bookingsRepo);
+  const getServices        = new GetServicesUseCase(servicesRepo);
+  const createService      = new CreateServiceUseCase(servicesRepo);
+  const updateService      = new UpdateServiceUseCase(servicesRepo);
+  const deleteService      = new DeleteServiceUseCase(servicesRepo);
+  const getSchedule        = new GetScheduleUseCase(schedulesRepo);
+  const upsertSchedule     = new UpsertScheduleUseCase(schedulesRepo);
+  const getOverrides       = new GetOverridesUseCase(schedulesRepo);
+  const upsertOverride     = new UpsertOverrideUseCase(schedulesRepo);
+  const deleteOverride     = new DeleteOverrideUseCase(schedulesRepo);
+  const getAvailableSlots  = new GetAvailableSlotsUseCase(schedulesRepo, servicesRepo);
 
   // ─── Routes ────────────────────────────────────────────────
-  app.register(makeCatalogRoutes({ getMasters, getMasterById }), {
+  app.register(makeCatalogRoutes({ getMasters, getMasterById, getAvailableSlots }), {
     prefix: '/api/v1/catalog',
   });
 
@@ -62,6 +77,10 @@ export function buildApp() {
     prefix: '/api/v1/me/services',
   });
 
+  app.register(makeScheduleRoutes({ getSchedule, upsertSchedule, getOverrides, upsertOverride, deleteOverride, mastersRepo }), {
+    prefix: '/api/v1/me/schedule',
+  });
+
   app.get('/health', { config: { rateLimit: false } }, async () => ({
     status: 'ok', ts: new Date().toISOString(),
   }));
@@ -70,8 +89,10 @@ export function buildApp() {
   const domainStatusMap: Record<string, number> = {
     MASTER_NOT_FOUND:       404,
     MASTER_UNAVAILABLE:     422,
-    SERVICE_NOT_FOUND:      404,
-    SERVICE_LIMIT_REACHED:  422,
+    SERVICE_NOT_FOUND:       404,
+    SERVICE_LIMIT_REACHED:   422,
+    INVALID_SCHEDULE_TIME:   422,
+    OVERRIDE_NOT_FOUND:      404,
   };
 
   app.setErrorHandler(async (err: FastifyError | Error, _req, reply) => {

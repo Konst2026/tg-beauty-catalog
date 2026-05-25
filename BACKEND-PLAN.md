@@ -1078,7 +1078,11 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 [x] Grammy bot: /start → открыть Mini App (inline keyboard web_app button)
 [x] TokenCrypto: shared/lib/token-crypto.ts (AES-256-GCM, env: TOKEN_ENCRYPTION_KEY)
 [x] New env vars: PLATFORM_URL, TOKEN_ENCRYPTION_KEY, MINI_APP_URL
-[ ] Notifications: booking_confirmed, reminder_24h, reminder_2h (BullMQ + Redis)
+[x] Notifications: booking_confirmed, reminder_24h, reminder_2h (BullMQ + Redis)
+    - IEventBus (InProcessEventBus), INotificationPort, TelegramNotificationAdapter
+    - BookingCreated/BookingCancelled domain events
+    - BullMQ queue+worker, delayed jobs with jobId for cancellation
+    - Railway: Redis service (redis:7-alpine) provisioned, REDIS_URL set via private networking
 [ ] Trial plan: 2 месяца, cron для expired
 [ ] Gallery upload (Supabase Storage — bucket beautybook-media)
 [ ] Theme config (color, logo)

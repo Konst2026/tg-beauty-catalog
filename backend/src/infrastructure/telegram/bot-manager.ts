@@ -26,6 +26,11 @@ export class BotManager implements IBotManager {
     this.cache.delete(masterId);
   }
 
+  async sendMessage(masterId: string, telegramId: number, text: string): Promise<void> {
+    const bot = await this.getOrCreate(masterId);
+    await bot.api.sendMessage(telegramId, text);
+  }
+
   private async getOrCreate(masterId: string): Promise<Bot> {
     const entry = this.cache.get(masterId);
     if (entry && Date.now() - entry.lastUsed < this.TTL) {

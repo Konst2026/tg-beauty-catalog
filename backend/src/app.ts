@@ -35,6 +35,11 @@ import { makeWebhookRoutes }      from '@/adapters/http/webhook/webhook.controll
 import { GrammyBotApiAdapter }    from '@/infrastructure/telegram/grammy-bot-api.adapter';
 import { BotManager }             from '@/infrastructure/telegram/bot-manager';
 import { TokenCrypto }            from '@/shared/lib/token-crypto';
+import { InProcessEventBus }      from '@/shared/lib/event-bus';
+import { notificationQueue }      from '@/infrastructure/queue/notification.queue';
+import { createNotificationWorker } from '@/infrastructure/queue/notification.worker';
+import { TelegramNotificationAdapter } from '@/infrastructure/telegram/notification-adapter';
+import { registerNotificationEventHandlers } from '@/infrastructure/event-handlers/notification.event-handler';
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -58,12 +63,22 @@ export function buildApp() {
   const tokenCrypto   = new TokenCrypto(env.TOKEN_ENCRYPTION_KEY);
   const botApi        = new GrammyBotApiAdapter();
   const botManager    = new BotManager(mastersRepo, tokenCrypto, env.MINI_APP_URL);
+  const eventBus      = new InProcessEventBus();
+
+  const notificationAdapter = new TelegramNotificationAdapter(botManager);
+  const notificationWorker  = createNotificationWorker(notificationAdapter);
+  registerNotificationEventHandlers(eventBus, notificationQueue);
+
+  app.addHook('onClose', async () => {
+    await notificationWorker.close();
+    await notificationQueue.close();
+  });
 
   const getMasters         = new GetMastersUseCase(mastersRepo);
   const getMasterById      = new GetMasterByIdUseCase(mastersRepo);
-  const createBooking      = new CreateBookingUseCase(bookingsRepo, mastersRepo);
+  const createBooking      = new CreateBookingUseCase(bookingsRepo, mastersRepo, eventBus);
   const getMyBookings      = new GetMyBookingsUseCase(bookingsRepo);
-  const cancelBooking      = new CancelBookingUseCase(bookingsRepo);
+  const cancelBooking      = new CancelBookingUseCase(bookingsRepo, eventBus);
   const getServices        = new GetServicesUseCase(servicesRepo);
   const createService      = new CreateServiceUseCase(servicesRepo);
   const updateService      = new UpdateServiceUseCase(servicesRepo);

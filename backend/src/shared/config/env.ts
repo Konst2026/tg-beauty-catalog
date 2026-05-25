@@ -6,6 +6,7 @@ const envSchema = z.object({
   PLATFORM_URL:           z.string().url('PLATFORM_URL must be a valid URL'),
   TOKEN_ENCRYPTION_KEY:   z.string().length(64, 'TOKEN_ENCRYPTION_KEY must be 64 hex chars'),
   MINI_APP_URL:           z.string().url('MINI_APP_URL must be a valid URL'),
+  REDIS_URL:              z.string().default('redis://localhost:6379'),
   NODE_ENV:               z.enum(['development', 'production', 'test']).default('development'),
   PORT:                   z.string().regex(/^\d+$/).optional(),
   HOST:                   z.string().optional(),

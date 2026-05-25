@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { CreateBookingUseCase } from './create-booking.use-case';
 import type { IBookingRepository } from '@/domain/ports/booking.repo.port';
 import type { IMasterRepository } from '@/domain/ports/master.repo.port';
+import type { IEventBus } from '@/domain/ports/event-bus.port';
 import type { Booking } from '@/domain/booking/booking.entity';
 import type { Master } from '@/domain/master/master.entity';
 import { DomainError } from '@/shared/errors/domain-error';
@@ -37,7 +38,7 @@ const baseInput = {
   price_snapshot:     1500,
 };
 
-function makeMockRepos(overrides?: {
+function makeMocks(overrides?: {
   masterResult?: Master | null;
   bookingResult?: Booking;
 }) {
@@ -58,23 +59,28 @@ function makeMockRepos(overrides?: {
     upsert:             vi.fn(),
     updateBotInfo:      vi.fn(),
   };
-  return { bookingRepo, masterRepo };
+  const eventBus: IEventBus = {
+    publish:   vi.fn().mockResolvedValue(undefined),
+    subscribe: vi.fn(),
+  };
+  return { bookingRepo, masterRepo, eventBus };
 }
 
 describe('CreateBookingUseCase', () => {
   it('creates booking when master exists and is published', async () => {
-    const { bookingRepo, masterRepo } = makeMockRepos();
-    const uc = new CreateBookingUseCase(bookingRepo, masterRepo);
+    const { bookingRepo, masterRepo, eventBus } = makeMocks();
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo, eventBus);
 
     const result = await uc.execute(baseInput);
 
     expect(result).toEqual(mockBooking);
     expect(bookingRepo.create).toHaveBeenCalledWith(baseInput);
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.objectContaining({ type: 'BookingCreated' }));
   });
 
   it('throws DomainError MASTER_NOT_FOUND when master does not exist', async () => {
-    const { bookingRepo, masterRepo } = makeMockRepos({ masterResult: null });
-    const uc = new CreateBookingUseCase(bookingRepo, masterRepo);
+    const { bookingRepo, masterRepo, eventBus } = makeMocks({ masterResult: null });
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo, eventBus);
 
     await expect(uc.execute(baseInput)).rejects.toThrow(DomainError);
     await expect(uc.execute(baseInput)).rejects.toMatchObject({ code: 'MASTER_NOT_FOUND' });
@@ -83,18 +89,18 @@ describe('CreateBookingUseCase', () => {
 
   it('throws DomainError MASTER_UNAVAILABLE when master is not published', async () => {
     const unpublished = { ...mockMaster, is_published: false } as Master;
-    const { bookingRepo, masterRepo } = makeMockRepos({ masterResult: unpublished });
-    const uc = new CreateBookingUseCase(bookingRepo, masterRepo);
+    const { bookingRepo, masterRepo, eventBus } = makeMocks({ masterResult: unpublished });
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo, eventBus);
 
     await expect(uc.execute(baseInput)).rejects.toMatchObject({ code: 'MASTER_UNAVAILABLE' });
     expect(bookingRepo.create).not.toHaveBeenCalled();
   });
 
   it('propagates repository error (e.g. 23P01 GIST conflict) to caller', async () => {
-    const { bookingRepo, masterRepo } = makeMockRepos();
+    const { bookingRepo, masterRepo, eventBus } = makeMocks();
     const pgError = Object.assign(new Error('exclusion violation'), { code: '23P01' });
     vi.mocked(bookingRepo.create).mockRejectedValue(pgError);
-    const uc = new CreateBookingUseCase(bookingRepo, masterRepo);
+    const uc = new CreateBookingUseCase(bookingRepo, masterRepo, eventBus);
 
     await expect(uc.execute(baseInput)).rejects.toMatchObject({ code: '23P01' });
   });

@@ -1065,10 +1065,10 @@ STRIPE_PRICE_ID=price_...         # ID месячного тарифа в Stripe
 [x] 13 unit-тестов (Vitest): create-booking × 4, cancel-booking × 3, telegram-auth × 6
 [x] TypeScript strict + ESLint: 0 ошибок
 
-[ ] Services CRUD (GET/POST/PUT/DELETE /api/v1/me/services)
-[ ] Schedule CRUD (weekly template + overrides)
-[ ] Slot calculator (чистая функция, domain/services/slot-calculator.ts)
-[ ] GET /api/v1/masters/:id/slots?date=YYYY-MM-DD&service_id=
+[x] Services CRUD (GET/POST/PUT/DELETE /api/v1/me/services) — лимит 50 услуг, auth через initData
+[x] Schedule CRUD (GET/PUT /api/v1/me/schedule/template, GET/PUT/DELETE /api/v1/me/schedule/overrides)
+[x] Slot calculator (чистая функция domain/schedule/slot-calculator.ts — нет I/O)
+[x] GET /api/v1/catalog/masters/:id/slots?date=YYYY-MM-DD&service_id= (override > weekly template)
 [ ] GET /api/v1/me/calendar?from=&to= (агрегация schedule + overrides + bookings)
 [ ] POST /api/v1/me/calendar/block, DELETE /api/v1/me/calendar/block/:id
 [ ] Bot connect: POST /api/v1/me/bot/connect → getMe → setWebhook
